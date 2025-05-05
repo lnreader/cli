@@ -1,0 +1,35 @@
+# Build artifacts
+/build/
+/bin/
+/cli
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Generated EPUB files
+/epub/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+/vendor/
+
+# Go workspace file
+go.work
+
+# macOS system files
+.DS_Store
+
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+IMPROVEMENT_IDEAS.md
