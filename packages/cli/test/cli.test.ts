@@ -220,6 +220,59 @@ describe('lnreader', () => {
     expect(JSON.parse((await lnreader('list', '--json')).stdout)).toEqual([]);
   }, 60_000);
 
+  it('gets and sets global settings', async () => {
+    await lnreader('config', 'set', 'concurrency', '3');
+    expect((await lnreader('config', 'get', 'concurrency')).stdout.trim()).toBe(
+      '3',
+    );
+    expect(
+      JSON.parse((await lnreader('config', 'get', '--json')).stdout),
+    ).toMatchObject({
+      concurrency: 3,
+      minGapMs: 0,
+    });
+    await lnreader('config', 'unset', 'concurrency');
+    expect((await lnreader('config', 'get', 'concurrency')).stdout.trim()).toBe(
+      '2',
+    );
+    await expect(
+      lnreader('config', 'set', 'concurrency', 'lots'),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining('Invalid value for concurrency'),
+    });
+    await expect(lnreader('config', 'set', 'nope', '1')).rejects.toMatchObject({
+      stderr: expect.stringContaining('Unknown setting "nope"'),
+    });
+    await expect(lnreader('config', 'set', 'repos', 'x')).rejects.toMatchObject(
+      {
+        stderr: expect.stringContaining('plugins repo add'),
+      },
+    );
+  }, 30_000);
+
+  it('gets and sets plugin settings', async () => {
+    await lnreader('config', 'set', '--plugin', 'fixture', 'apiKey', 's3cret');
+    await lnreader('config', 'set', '--plugin', 'fixture', 'nsfw', 'on');
+    const table = (await lnreader('config', 'get', '--plugin', 'fixture'))
+      .stdout;
+    expect(table).toContain('Show NSFW');
+    expect(table).not.toContain('s3cret');
+    expect(
+      JSON.parse(
+        (await lnreader('config', 'get', '--plugin', 'fixture', '--json'))
+          .stdout,
+      ),
+    ).toEqual({
+      apiKey: 's3cret',
+      nsfw: true,
+    });
+    await expect(
+      lnreader('config', 'set', '--plugin', 'fixture', 'nsfw', 'maybe'),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining('is a switch'),
+    });
+  }, 30_000);
+
   it('refuses unknown formats', async () => {
     await expect(
       lnreader('download', 'fixture:novel/abc', '--format', 'pdf'),

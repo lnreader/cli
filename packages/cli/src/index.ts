@@ -1,4 +1,5 @@
 import { Command, CommanderError } from 'commander';
+import { registerConfig } from './commands/config.js';
 import { registerDownload } from './commands/download.js';
 import { registerInfo } from './commands/info.js';
 import { registerLibrary } from './commands/library.js';
@@ -32,6 +33,7 @@ registerSearch(program);
 registerInfo(program);
 registerDownload(program);
 registerLibrary(program);
+registerConfig(program);
 
 try {
   await program.parseAsync();

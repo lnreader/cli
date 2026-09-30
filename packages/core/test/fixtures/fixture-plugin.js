@@ -18,6 +18,10 @@ var FixturePlugin = (function () {
     this.icon = "src/en/fixture/icon.png";
     this.site = "https://novels.test/";
     this.imageRequestInit = { headers: { "X-Image-Token": "abc" } };
+    this.pluginSettings = {
+      apiKey: { value: "", label: "API key", type: "Text" },
+      nsfw: { value: false, label: "Show NSFW", type: "Switch" },
+    };
     this.loads = (storage_1.storage.get("loads") || 0) + 1;
     storage_1.storage.set("loads", this.loads);
     this.filters = {

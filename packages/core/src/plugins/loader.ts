@@ -39,7 +39,8 @@ export class PluginRunner {
       const settings = Object.keys(this.plugin.pluginSettings ?? {}).join(', ');
       return Promise.reject(
         new Error(
-          `Plugin ${this.id} needs its settings configured first (${settings})`,
+          `Plugin ${this.id} needs its settings configured first (${settings}). ` +
+            `See \`lnreader config get --plugin ${this.id}\``,
         ),
       );
     }
@@ -168,14 +169,19 @@ export class PluginLoader {
     return p;
   }
 
+  /** Path of a plugin's `@libs/storage` file, which also holds its settings. */
+  storageFile(id: string): string {
+    return join(this.options.paths.data, 'plugins', id, 'storage.json');
+  }
+
   private async doLoad(id: string): Promise<PluginRunner> {
-    const { registry, http, cookies, paths, timeoutMs, logger } = this.options;
+    const { registry, http, cookies, timeoutMs, logger } = this.options;
     const entry = await registry.get(id);
     const code = await registry.getCode(entry);
     const plugin = loadPlugin(code, entry.id, {
       http,
       jar: await cookies.jar(entry.id),
-      storageFile: join(paths.data, 'plugins', entry.id, 'storage.json'),
+      storageFile: this.storageFile(entry.id),
       logger,
     });
     return new PluginRunner(entry, plugin, timeoutMs);
