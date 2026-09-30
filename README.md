@@ -13,12 +13,12 @@ Requires Node.js 22 or newer.
 ```bash
 # From source (until the npm package is published)
 git clone https://github.com/lnreader/cli.git && cd cli
-pnpm install && pnpm build
-node packages/cli/dist/index.js --help
-
-# Optional: put `lnreader` on your PATH
-cd packages/cli && npm link
+pnpm install
+pnpm link:cli              # builds, then puts `lnreader` on your PATH via npm link
+lnreader --help
 ```
+
+After pulling new changes, run `pnpm build` again; the linked command picks up the new build. If `lnreader` is still not found, check that npm's global bin directory (`npm prefix -g`, plus `/bin` on macOS and Linux) is on your `PATH`. To remove it: `npm unlink -g lnreader-cli`.
 
 ## Usage
 
