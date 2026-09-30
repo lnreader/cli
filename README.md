@@ -4,7 +4,7 @@ Run [LNReader plugins](https://github.com/LNReader/lnreader-plugins) outside the
 
 The CLI loads the same compiled plugins the app uses, straight from the published plugin index, so plugin fixes reach you without a CLI release.
 
-> **Status:** MVP in progress. `plugins`, `search`, `info` and `download` work. `follow`/`update`, `popular`, `config`, `auth` and `test` are planned for v1.
+> **Status:** pre-release. Searching, downloading, following novels, browsing sources, settings and browser sign-in all work. Not yet published to npm.
 
 ## Install
 
@@ -55,15 +55,58 @@ lnreader download <novel> --offline    # rebuild from the cache, no network
 
 ### Commands
 
-| Command                            | Purpose                            | Key flags                                                                           |
-| ---------------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------- |
-| `plugins list`                     | List available plugins             | `--lang`, `--search`, `--json`                                                      |
-| `plugins repo list / add / remove` | Manage plugin repo URLs            |                                                                                     |
-| `search <query>`                   | Search one, several or all plugins | `--plugin`, `--lang`, `--page`, `--limit`, `--json`                                 |
-| `info <novel>`                     | Show metadata and chapter count    | `--plugin`, `--chapters`, `--json`                                                  |
-| `download <novel>`                 | Build an EPUB                      | `--from`, `--to`, `--split`, `--out`, `--no-images`, `--offline`, `--css`, `--json` |
+| Command                                  | Purpose                                      | Key flags                                                                           |
+| ---------------------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `plugins list`                           | List available plugins                       | `--lang`, `--search`, `--json`                                                      |
+| `plugins repo list / add / remove`       | Manage plugin repo URLs                      |                                                                                     |
+| `search <query>`                         | Search one, several or all plugins           | `--plugin`, `--lang`, `--page`, `--limit`, `--json`                                 |
+| `info <novel>`                           | Show metadata and chapter count              | `--plugin`, `--chapters`, `--json`                                                  |
+| `download <novel>`                       | Build an EPUB                                | `--from`, `--to`, `--split`, `--out`, `--no-images`, `--offline`, `--css`, `--json` |
+| `popular`                                | Browse a source's popular or latest novels   | `--plugin`, `--latest`, `--filter key=value`, `--filters`, `--page`, `--json`       |
+| `follow <novel>`                         | Add to your library and download             | `--out`, `--split`, `--no-images`, `--css`, `--no-download`                         |
+| `list`                                   | Show followed novels                         | `--json`                                                                            |
+| `update [novel...]`                      | Fetch new chapters, rebuild EPUBs            | `--all`, `--delta`, `--json`                                                        |
+| `unfollow <novel>`                       | Remove from your library                     |                                                                                     |
+| `config get / set / unset / edit / path` | Global and per-plugin settings               | `--plugin`, `--json`                                                                |
+| `auth <plugin>`                          | Sign in or pass Cloudflare in a real browser | `--browser chrome\|msedge`, `--browser-path`, `--url`, `--clear`                    |
 
 Global flags: `--home <dir>`, `--refresh` (ignore cached plugin indexes), `--verbose`, `--no-interactive`, `--user-agent <ua>`, `--cookies <cookies.txt>`.
+
+### Following novels
+
+`follow` adds a novel to your library and downloads it; `update` later fetches only chapters you don't have yet:
+
+```bash
+lnreader follow https://www.royalroad.com/fiction/21220 --out ~/Books --split 100
+lnreader list                          # followed novels, new chapters since the last check
+lnreader update --all                  # rebuild each book with its new chapters
+lnreader update --all --delta          # or: write just the new chapters as "Title - New Chapters (Ch 101-105).epub"
+```
+
+Each novel remembers its own output folder and split size. Full rebuilds are fast because chapters come from the cache; with `--split`, only the volumes from the first new chapter onward are rebuilt. `--delta` suits Send-to-Kindle and readers that lose your place when a file is replaced. `update --all` is safe to run from cron: it prints plain progress, keeps going if one novel fails, and exits non-zero if anything failed. `update <novel>` takes a number from `lnreader list`, part of a title, a URL or `plugin:path`. In a terminal, `update` with no arguments lets you pick.
+
+### Browsing sources
+
+```bash
+lnreader popular --plugin royalroad                        # popular list
+lnreader popular --plugin royalroad --latest --page 2      # latest updates
+lnreader popular --plugin royalroad --filters              # which filters it has
+lnreader popular --plugin royalroad -f genres=fantasy,-romance -f orderBy=rating
+```
+
+Filter values are checked against what the source offers: pickers take one option, checkbox groups a comma list, and excludable groups accept `-option` to exclude.
+
+### Settings
+
+```bash
+lnreader config get                        # all settings
+lnreader config set outDir ~/Books         # default output folder
+lnreader config set minGapMs 1000          # be gentler with sites
+lnreader config get --plugin komga         # a plugin's own settings
+lnreader config set --plugin komga url https://komga.home.lan
+lnreader config edit --plugin komga        # prompt for each setting
+lnreader config path                       # where everything is stored
+```
 
 ### Downloads are resumable
 
@@ -73,19 +116,28 @@ Every chapter is cached on disk as soon as it is fetched. If a download is inter
 
 By default the CLI makes at most 2 concurrent requests per host with a 500 ms gap between them, backs off exponentially on 429 and 5xx responses, and honours `Retry-After`. Plugins listed in upstream's [`BLACKLIST.json`](https://github.com/LNReader/lnreader-plugins/blob/master/BLACKLIST.json) are hidden and refused.
 
-### Cloudflare-protected sources
+### Cloudflare-protected sources and logins
 
-Export cookies from a browser where you've passed the challenge (as a Netscape `cookies.txt`), then pass them together with that browser's User-Agent:
+Some sites block scripts with a Cloudflare check. `lnreader auth` opens the site in your installed Chrome or Edge, where you pass the check (or log in to an account you have). It saves the cookies together with that browser's User-Agent, which the clearance cookie is tied to:
+
+```bash
+npm install -g @lnreader-cli/browser   # one-time: the optional add-on (no browser download)
+lnreader auth novelupdates             # finishes by itself once the check clears, or press Enter
+lnreader auth novelupdates --browser msedge
+lnreader auth novelupdates --clear     # forget the saved cookies
+```
+
+Without the add-on, export cookies from your browser as a Netscape `cookies.txt` and pass them with that browser's User-Agent:
 
 ```bash
 lnreader download <novel> --cookies cookies.txt --user-agent "Mozilla/5.0 ..."
 ```
 
-The cookies are saved in that plugin's cookie jar, so later runs reuse them. A guided `lnreader auth <plugin>` is planned for v1.
+Either way the cookies are saved in that plugin's cookie jar, so later runs reuse them. Clearance cookies expire, so run `auth` again when a site starts failing.
 
 ### Where data lives
 
-Config, cache and data go to the OS-standard directories (e.g. `~/.config/lnreader-cli`, `~/.cache/lnreader-cli` and `~/.local/share/lnreader-cli` on Linux). Set `LNREADER_HOME` or pass `--home <dir>` to keep everything in one folder. Plugin settings and cookies are stored with `0600` permissions. There is no telemetry.
+Config, cache and data go to the OS-standard directories (e.g. `~/.config/lnreader-cli`, `~/.cache/lnreader-cli` and `~/.local/share/lnreader-cli` on Linux). Set `LNREADER_HOME` or pass `--home <dir>` to keep everything in one folder. Plugin settings, cookies and saved User-Agents are stored with `0600` permissions. There is no telemetry.
 
 ## How it works
 
@@ -97,14 +149,16 @@ plugins.min.json ──► registry ──► sandbox (node:vm) ──► chapte
 
 - **Registry** fetches plugin indexes (cached 6 hours), drops blacklisted entries and caches each plugin's JS by `id@version`.
 - **Sandbox** runs each plugin in its own `vm` context. `require` returns Node versions of the app's modules; anything else fails with `Unshimmed import: <name>`. Plugins get no `process`, `fs` or `Buffer`. Their only network access is the fetch shim, which goes through the rate limiter and the plugin's cookie jar.
+- **Library** keeps followed novels, the chapters already delivered and the files written, in SQLite (`node:sqlite`).
 - **EPUB builder** sanitizes chapter HTML to XHTML, embeds images (using the plugin's `imageRequestInit`), and writes EPUB 3 with an EPUB 2 NCX. Output is validated with [epubcheck](https://github.com/w3c/epubcheck) in CI.
 
 The code is a pnpm monorepo:
 
-| Package         | Contents                                                                 |
-| --------------- | ------------------------------------------------------------------------ |
-| `packages/core` | `@lnreader-cli/core`: plugin runtime, fetch layer, storage, EPUB builder |
-| `packages/cli`  | `lnreader-cli`, the `lnreader` binary: commands and terminal UI          |
+| Package            | Contents                                                                                                      |
+| ------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `packages/core`    | `@lnreader-cli/core`: plugin runtime, fetch layer, storage, EPUB builder                                      |
+| `packages/cli`     | `lnreader-cli`, the `lnreader` binary: commands and terminal UI                                               |
+| `packages/browser` | `@lnreader-cli/browser`: optional add-on for `lnreader auth` (playwright-core driving your installed browser) |
 
 ## Development
 
@@ -116,6 +170,10 @@ EPUBCHECK_JAR=/path/to/epubcheck.jar pnpm test   # also validate EPUBs with epub
 pnpm lint && pnpm typecheck && pnpm format:check
 pnpm check:plugins         # download and load every upstream plugin in the sandbox
 ```
+
+### Plugin problems
+
+If a source returns nothing or broken chapters, the plugin itself usually needs fixing. Run with `--verbose` to see the plugin's own logs, then report it (or fix it) in [lnreader-plugins](https://github.com/LNReader/lnreader-plugins). That repo's `npm run check:plugin` tests a plugin against its live site. `pnpm check:plugins` here only checks that every published plugin loads in this CLI's sandbox.
 
 ## License
 
