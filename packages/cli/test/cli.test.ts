@@ -1,0 +1,178 @@
+import { execFile } from 'node:child_process';
+import { mkdtemp, readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+const run = promisify(execFile);
+const CLI = fileURLToPath(new URL('../src/index.ts', import.meta.url));
+const FIXTURE = new URL(
+  '../../core/test/fixtures/fixture-plugin.js',
+  import.meta.url,
+);
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+let server: Server;
+let base: string;
+let home: string;
+
+/** Serves a plugin repo, the fixture plugin (pointed at this server) and a novel site. */
+beforeAll(async () => {
+  const code = await readFile(FIXTURE, 'utf8');
+  const page = (body: string) =>
+    `<!doctype html><html><body>${body}</body></html>`;
+  server = createServer((req, res) => {
+    const url = new URL(req.url!, base);
+    const send = (
+      status: number,
+      body: string | Buffer,
+      type = 'text/html',
+    ) => {
+      res.writeHead(status, { 'content-type': type });
+      res.end(body);
+    };
+    if (url.pathname === '/plugins.min.json') {
+      return send(
+        200,
+        JSON.stringify([
+          {
+            id: 'fixture',
+            name: 'Fixture',
+            site: `${base}/`,
+            lang: 'English',
+            version: '1.0.0',
+            url: `${base}/fixture.js`,
+          },
+          {
+            id: 'banned',
+            name: 'Banned',
+            site: 'https://banned.test/',
+            lang: 'English',
+            version: '1.0.0',
+            url: `${base}/x.js`,
+          },
+        ]),
+        'application/json',
+      );
+    }
+    if (url.pathname === '/blacklist.json') {
+      return send(
+        200,
+        JSON.stringify([{ name: 'Banned', site: 'https://banned.test/' }]),
+        'application/json',
+      );
+    }
+    if (url.pathname === '/fixture.js')
+      return send(
+        200,
+        code.replaceAll('https://novels.test/', `${base}/`),
+        'text/javascript',
+      );
+    if (url.pathname === '/search') {
+      return send(
+        200,
+        page(
+          `<div class="result"><a href="/novel/abc">Found ${url.searchParams.get('q')}</a></div>`,
+        ),
+      );
+    }
+    if (url.pathname === '/novel/abc') {
+      return send(
+        200,
+        page(`<h1>CLI Novel</h1><span class="author">A. Author</span>
+        <img class="cover" src="${base}/cover.png"><p class="summary">Summary.</p>
+        <div class="chapters">${[1, 2, 3].map(i => `<a href="/novel/abc/${i}">Chapter ${i}</a>`).join('')}</div>`),
+      );
+    }
+    const ch = url.pathname.match(/^\/novel\/abc\/(\d)$/);
+    if (ch)
+      return send(200, page(`<div id="content"><p>Body ${ch[1]}</p></div>`));
+    if (url.pathname === '/cover.png') return send(200, PNG, 'image/png');
+    send(404, 'not found');
+  });
+  await new Promise<void>(r => server.listen(0, '127.0.0.1', r));
+  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  home = await mkdtemp(join(tmpdir(), 'lnreader-cli-'));
+  await mkdir(join(home, 'config'), { recursive: true });
+  await writeFile(
+    join(home, 'config', 'config.json'),
+    JSON.stringify({
+      repos: [`${base}/plugins.min.json`],
+      blacklistUrl: `${base}/blacklist.json`,
+      minGapMs: 0,
+    }),
+  );
+});
+
+afterAll(() => server?.close());
+
+const lnreader = (...args: string[]) =>
+  run(
+    process.execPath,
+    ['--import', 'tsx', '--conditions=source', CLI, '--home', home, ...args],
+    {
+      env: {
+        ...process.env,
+        NO_COLOR: '1',
+        NO_PROXY: '127.0.0.1',
+        no_proxy: '127.0.0.1',
+      },
+    },
+  );
+
+describe('lnreader', () => {
+  it('lists plugins without blacklisted ones', async () => {
+    const { stdout } = await lnreader('plugins', 'list', '--json');
+    expect(JSON.parse(stdout).map((p: { id: string }) => p.id)).toEqual([
+      'fixture',
+    ]);
+  });
+
+  it('searches, then downloads by result number', async () => {
+    const search = await lnreader('search', 'dragons', '-p', 'fixture');
+    expect(search.stdout).toContain('Found dragons');
+    expect(search.stdout).toMatch(/1\s+Found dragons/);
+
+    const info = await lnreader('info', '1', '--json');
+    expect(JSON.parse(info.stdout)).toMatchObject({
+      name: 'CLI Novel',
+      author: 'A. Author',
+      chapterCount: 3,
+    });
+
+    const out = join(home, 'books');
+    const dl = await lnreader('download', '1', '--out', out, '--json');
+    expect(JSON.parse(dl.stdout)).toMatchObject({ chapters: 3, failed: [] });
+    expect(await readdir(out)).toEqual(['CLI Novel.epub']);
+  }, 60_000);
+
+  it('accepts a URL and resolves the plugin from its site', async () => {
+    const { stdout } = await lnreader('info', `${base}/novel/abc`, '--json');
+    expect(JSON.parse(stdout)).toMatchObject({
+      plugin: { id: 'fixture' },
+      path: 'novel/abc',
+    });
+  }, 30_000);
+
+  it('fails with a usage error when the novel is missing and stdin is not a TTY', async () => {
+    await expect(lnreader('download')).rejects.toMatchObject({
+      code: 1,
+      stderr: expect.stringContaining('Missing <novel>'),
+    });
+  });
+
+  it('refuses unknown formats', async () => {
+    await expect(
+      lnreader('download', 'fixture:novel/abc', '--format', 'pdf'),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining('Unsupported format'),
+    });
+  });
+});
