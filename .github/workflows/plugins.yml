@@ -9,15 +9,21 @@ on:
 
 jobs:
   load:
+    name: Load All Plugins
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - name: Check Out Repository
+        uses: actions/checkout@v4
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@v4
+      - name: Set Up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm check:plugins --refresh
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Load Every Plugin
+        run: pnpm check:plugins --refresh
         env:
           LNREADER_HOME: ${{ runner.temp }}/lnreader
