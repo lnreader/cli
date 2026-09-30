@@ -1,27 +1,11 @@
-# Build artifacts
-/build/
-/bin/
-/cli
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
 
 # Generated EPUB files
-/epub/
-
-# Test binary, built with `go test -c`
-*.test
-
-# Output of the go coverage tool
-*.out
-
-# Dependency directories
-/vendor/
-
-# Go workspace file
-go.work
+*.epub
 
 # macOS system files
 .DS_Store
@@ -33,9 +17,3 @@ go.work
 *.swo
 
 IMPROVEMENT_IDEAS.md
-# Node
-node_modules/
-dist/
-coverage/
-*.tsbuildinfo
-*.epub

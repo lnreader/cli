@@ -106,8 +106,6 @@ pnpm lint && pnpm typecheck && pnpm format:check
 pnpm check:plugins         # download and load every upstream plugin in the sandbox
 ```
 
-The legacy Go prototype (`cmd/`, `internal/`) is still in the repository and is not part of the new build.
-
 ## License
 
 [MIT](LICENSE). Plugin types and constants under `packages/core/src/types` are vendored from [LNReader/lnreader-plugins](https://github.com/LNReader/lnreader-plugins) (MIT).
