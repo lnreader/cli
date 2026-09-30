@@ -1,6 +1,9 @@
 import { resolve } from 'node:path';
 import {
+  errorInfo,
+  LnreaderError,
   updateNovel,
+  type ErrorInfo,
   type FollowOptions,
   type LibraryNovel,
   type PluginRunner,
@@ -55,6 +58,13 @@ export function followOptionsFrom(
   };
 }
 
+export type FollowOutcome = {
+  novel: LibraryNovel;
+  alreadyFollowed: boolean;
+  update?: UpdateResult;
+  error?: ErrorInfo;
+};
+
 /** Add a novel to the library and, unless told not to, download it now. */
 export async function followNovel(
   rt: Runtime,
@@ -63,7 +73,8 @@ export async function followNovel(
   novel: ParsedNovel,
   options: FollowOptions,
   download = true,
-): Promise<void> {
+  json = false,
+): Promise<FollowOutcome> {
   const library = rt.library();
   const already = library.get(runner.id, path);
   const entry = library.follow(
@@ -77,11 +88,28 @@ export async function followNovel(
     },
     options,
   );
-  log.success(
-    `${already ? 'Updated' : 'Following'} ${pc.bold(entry.name)} → ${options.outDir}`,
+  if (!json)
+    log.success(
+      `${already ? 'Updated' : 'Following'} ${pc.bold(entry.name)} → ${options.outDir}`,
+    );
+  if (!download) {
+    if (!json) log.info(`Run ${pc.bold('lnreader update')} to download it`);
+    return { novel: entry, alreadyFollowed: !!already };
+  }
+  const outcome = await updateOne(
+    rt,
+    entry,
+    { json },
+    runner,
+    undefined,
+    novel,
   );
-  if (download) await updateOne(rt, entry, {}, runner, undefined, novel);
-  else log.info(`Run ${pc.bold('lnreader update')} to download it`);
+  return {
+    novel: rt.library().get(runner.id, path) ?? entry,
+    alreadyFollowed: !!already,
+    update: outcome.result,
+    error: outcome.info,
+  };
 }
 
 /** Resolve `<novel>` against the library: list number, name, URL or plugin:path. */
@@ -94,23 +122,29 @@ export async function findFollowed(
   if (/^\d+$/.test(input)) {
     const n = novels[Number(input) - 1];
     if (!n)
-      throw new Error(
+      throw new LnreaderError(
+        'NOT_FOLLOWED',
         `No novel #${input} in the library (${novels.length} followed)`,
+        'See the numbers in `lnreader list`',
       );
     return n;
   }
   if (/^https?:\/\//i.test(input) || input.includes(':') || globals.plugin) {
     const { runner, path } = await resolveNovel(rt, input, globals);
     const n = rt.library().get(runner.id, path);
-    if (!n) throw new Error(`Not following ${input}`);
+    if (!n) throw new LnreaderError('NOT_FOLLOWED', `Not following ${input}`);
     return n;
   }
   const q = input.toLowerCase();
   const matches = novels.filter(n => n.name.toLowerCase().includes(q));
   if (matches.length === 1) return matches[0]!;
   if (matches.length === 0)
-    throw new Error(`No followed novel matches "${input}"`);
-  throw new Error(
+    throw new LnreaderError(
+      'NOT_FOLLOWED',
+      `No followed novel matches "${input}"`,
+    );
+  throw new LnreaderError(
+    'INVALID_INPUT',
     `"${input}" matches ${matches.length} novels: ${matches.map(m => m.name).join(', ')}. Use its number from \`lnreader list\`.`,
   );
 }
@@ -119,6 +153,7 @@ type UpdateOutcome = {
   novel: LibraryNovel;
   result?: UpdateResult;
   error?: string;
+  info?: ErrorInfo;
 };
 
 async function updateOne(
@@ -160,9 +195,9 @@ async function updateOne(
     return { novel, result };
   } catch (e) {
     progress.clear();
-    const error = (e as Error).message;
-    if (!flags.json) log.error(`${novel.name}: ${error}`);
-    return { novel, error };
+    const info = errorInfo(e);
+    if (!flags.json) log.error(`${novel.name}: ${info.message}`);
+    return { novel, error: info.message, info };
   }
 }
 
@@ -206,6 +241,7 @@ async function updateMany(
         name: o.novel.name,
         ...(o.result ?? {}),
         error: o.error,
+        errorCode: o.info?.code,
       })),
     );
   } else if (novels.length > 1) {
@@ -243,6 +279,7 @@ export function registerLibrary(program: Command) {
       '--no-download',
       'only add to the library; download on the next update',
     )
+    .option('--json', 'print a JSON summary')
     .action(
       async (input: string | undefined, flags: FollowFlags, cmd: Command) => {
         const globals = cmd.optsWithGlobals<GlobalOptions>();
@@ -250,7 +287,7 @@ export function registerLibrary(program: Command) {
         try {
           const options = followOptionsFrom(rt, flags);
           if (!input) {
-            if (!isInteractive(globals))
+            if (!isInteractive({ ...globals, json: flags.json }))
               throw new MissingArgumentError('Missing <novel>');
             const query = await askText('Search for a novel to follow', {
               validate: v => (v.trim() ? undefined : 'Required'),
@@ -277,14 +314,22 @@ export function registerLibrary(program: Command) {
             plugin: flags.plugin,
           });
           const novel = await runner.parseNovel(path);
-          await followNovel(
+          const outcome = await followNovel(
             rt,
             runner,
             path,
             novel,
             options,
             flags.download !== false,
+            flags.json,
           );
+          if (flags.json) printJson(outcome);
+          if (outcome.error) process.exitCode = 1;
+          else if (
+            outcome.update?.status === 'updated' &&
+            outcome.update.failed.length
+          )
+            process.exitCode = 2;
         } finally {
           await rt.close();
         }
@@ -295,10 +340,11 @@ export function registerLibrary(program: Command) {
     .command('unfollow [novel]')
     .description('Remove a novel from your library (its EPUBs are kept)')
     .option('-p, --plugin <id>', 'plugin to use for a path or URL')
+    .option('--json', 'print the removed entry as JSON')
     .action(
       async (
         input: string | undefined,
-        flags: { plugin?: string },
+        flags: { plugin?: string; json?: boolean },
         cmd: Command,
       ) => {
         const globals = cmd.optsWithGlobals<GlobalOptions>();
@@ -308,7 +354,7 @@ export function registerLibrary(program: Command) {
           if (input)
             novel = await findFollowed(rt, input, { ...globals, ...flags });
           else {
-            if (!isInteractive(globals))
+            if (!isInteractive({ ...globals, json: flags.json }))
               throw new MissingArgumentError('Missing <novel>');
             const novels = rt.library().list();
             if (!novels.length) return log.info('Your library is empty');
@@ -324,7 +370,8 @@ export function registerLibrary(program: Command) {
             novel = novels.find(n => String(n.id) === picked);
           }
           rt.library().unfollow(novel!.id);
-          log.success(`Unfollowed ${pc.bold(novel!.name)}`);
+          if (flags.json) printJson({ unfollowed: novel });
+          else log.success(`Unfollowed ${pc.bold(novel!.name)}`);
         } finally {
           await rt.close();
         }

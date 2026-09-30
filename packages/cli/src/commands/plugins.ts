@@ -1,4 +1,9 @@
-import { DEFAULT_REPO, loadConfig, saveConfig } from '@lnreader-cli/core';
+import {
+  DEFAULT_REPO,
+  loadConfig,
+  saveConfig,
+  testPlugin,
+} from '@lnreader-cli/core';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import { openRuntime, type GlobalOptions } from '../context.js';
@@ -62,11 +67,42 @@ export function registerPlugins(program: Command) {
 
   const repo = plugins.command('repo').description('Manage plugin repo URLs');
 
+  plugins
+    .command('test <plugin>')
+    .description(
+      'Check a plugin against its live site: popular, search, novel and first chapter',
+    )
+    .option('--json', 'output JSON')
+    .action(async (id: string, opts: { json?: boolean }, cmd: Command) => {
+      const rt = await openRuntime(cmd.optsWithGlobals<GlobalOptions>());
+      try {
+        const result = await testPlugin(rt.loader, id, { budget: rt.budget });
+        if (!result.ok) process.exitCode = 1;
+        if (opts.json) return printJson(result);
+        for (const s of result.steps) {
+          const mark = s.ok
+            ? pc.green('✔')
+            : s.skipped
+              ? pc.dim('-')
+              : pc.red('✖');
+          const detail = s.error
+            ? pc.red(s.error.message)
+            : pc.dim(s.detail ?? '');
+          out(`${mark} ${s.step.padEnd(8)} ${detail}`);
+          if (s.error?.hint) out(`  ${' '.repeat(8)} ${pc.dim(s.error.hint)}`);
+        }
+      } finally {
+        await rt.close();
+      }
+    });
+
   repo
     .command('list')
     .description('Show configured repos')
-    .action(async (_opts, cmd: Command) => {
+    .option('--json', 'output JSON')
+    .action(async (opts: { json?: boolean }, cmd: Command) => {
       const rt = await openRuntime(cmd.optsWithGlobals<GlobalOptions>());
+      if (opts.json) return printJson(rt.config.repos);
       for (const url of rt.config.repos) out(url);
     });
 

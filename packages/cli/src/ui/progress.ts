@@ -1,5 +1,5 @@
 import pc from 'picocolors';
-import { err } from './format.js';
+import { err, isQuiet } from './format.js';
 
 /**
  * A single updating status line on a TTY stderr; periodic plain lines when
@@ -11,6 +11,7 @@ export class Progress {
   private active = false;
 
   update(done: number, total: number, label: string): void {
+    if (isQuiet()) return;
     const pct = total ? Math.floor((done / total) * 100) : 100;
     if (this.tty) {
       const barWidth = 24;

@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import {
   createRuntime,
+  LnreaderError,
   readJson,
   writeJson,
   type Plugin,
@@ -8,7 +9,7 @@ import {
   type Runtime,
 } from '@lnreader-cli/core';
 import pc from 'picocolors';
-import { err } from './ui/format.js';
+import { err, log } from './ui/format.js';
 
 export type GlobalOptions = {
   home?: string;
@@ -18,6 +19,9 @@ export type GlobalOptions = {
   cookies?: string;
   /** False with `--no-interactive`. */
   interactive?: boolean;
+  /** False with `--no-input`. */
+  input?: boolean;
+  quiet?: boolean;
 };
 
 export async function openRuntime(opts: GlobalOptions): Promise<Runtime> {
@@ -26,7 +30,7 @@ export async function openRuntime(opts: GlobalOptions): Promise<Runtime> {
     overrides: { userAgent: opts.userAgent },
     logger: {
       debug: m => opts.verbose && err(pc.dim(m)),
-      warn: m => err(pc.yellow(m)),
+      warn: m => log.warn(m),
     },
   });
 }
@@ -60,8 +64,10 @@ export async function resolveNovel(
     const items = (await readJson<LastSearchItem[]>(lastSearchFile(rt))) ?? [];
     const item = items[Number(input) - 1];
     if (!item)
-      throw new Error(
+      throw new LnreaderError(
+        'INVALID_INPUT',
         `No result #${input} in the last search (${items.length} results)`,
+        'Search again, or pass a URL or plugin:path',
       );
     return { runner: await load(item.pluginId), path: item.path };
   }
@@ -77,8 +83,10 @@ export async function resolveNovel(
     }
     const match = await rt.registry.resolveUrl(input);
     if (!match)
-      throw new Error(
-        `No plugin matches ${new URL(input).host}; pass --plugin <id>`,
+      throw new LnreaderError(
+        'PLUGIN_NOT_FOUND',
+        `No plugin matches ${new URL(input).host}`,
+        'Pass the plugin id, e.g. plugin:path or --plugin <id>',
       );
     return { runner: await load(match.entry.id), path: match.path };
   }
@@ -91,7 +99,9 @@ export async function resolveNovel(
     };
   }
   if (opts.plugin) return { runner: await load(opts.plugin), path: input };
-  throw new Error(
-    `Can't tell which plugin "${input}" belongs to; use a URL, plugin:path or --plugin`,
+  throw new LnreaderError(
+    'INVALID_INPUT',
+    `Can't tell which plugin "${input}" belongs to`,
+    'Use a URL, plugin:path or --plugin <id>',
   );
 }
