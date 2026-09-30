@@ -40,6 +40,7 @@ export {
   InvalidPluginError,
 } from './plugins/errors.js';
 export { PluginStorage } from './plugins/shims/storage.js';
+export { parseFilterArgs, describeFilter } from './plugins/filters.js';
 
 export { resolvePaths, type Paths } from './store/paths.js';
 export {

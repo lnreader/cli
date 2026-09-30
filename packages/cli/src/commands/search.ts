@@ -101,7 +101,7 @@ export function reportFailures(results: PluginResults[], verbose?: boolean) {
   if (verbose) for (const f of failures) log.error(`${f.entry.id}: ${f.error}`);
 }
 
-function printResults(results: PluginResults[]) {
+export function printResults(results: PluginResults[]) {
   let n = 0;
   for (const r of results) {
     if (r.items.length === 0) continue;

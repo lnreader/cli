@@ -4,6 +4,7 @@ import { registerDownload } from './commands/download.js';
 import { registerInfo } from './commands/info.js';
 import { registerLibrary } from './commands/library.js';
 import { registerPlugins } from './commands/plugins.js';
+import { registerPopular } from './commands/popular.js';
 import { registerSearch } from './commands/search.js';
 import { log } from './ui/format.js';
 import { MissingArgumentError } from './ui/prompts.js';
@@ -30,6 +31,7 @@ const program = new Command()
 
 registerPlugins(program);
 registerSearch(program);
+registerPopular(program);
 registerInfo(program);
 registerDownload(program);
 registerLibrary(program);

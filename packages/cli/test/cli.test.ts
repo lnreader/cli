@@ -273,6 +273,47 @@ describe('lnreader', () => {
     });
   }, 30_000);
 
+  it('browses popular novels with filters', async () => {
+    const popular = await lnreader(
+      'popular',
+      '-p',
+      'fixture',
+      '--no-interactive',
+    );
+    expect(popular.stdout).toMatch(/1\s+Popular popular 1/);
+
+    const latest = await lnreader(
+      'popular',
+      '-p',
+      'fixture',
+      '--latest',
+      '-f',
+      'order=Newest',
+      '--page',
+      '2',
+      '--json',
+    );
+    expect(JSON.parse(latest.stdout)).toEqual([
+      { name: 'Latest new 2', path: 'novel/abc' },
+    ]);
+
+    const filters = await lnreader('popular', '-p', 'fixture', '--filters');
+    expect(filters.stdout).toContain('one of: popular, new');
+
+    await expect(
+      lnreader('popular', '-p', 'fixture', '-f', 'order=oldest'),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining('Unknown option "oldest" for order'),
+    });
+    await expect(lnreader('popular')).rejects.toMatchObject({
+      stderr: expect.stringContaining('Missing --plugin'),
+    });
+
+    // Results can be used by number, like search results.
+    const info = await lnreader('info', '1', '--json');
+    expect(JSON.parse(info.stdout)).toMatchObject({ name: 'CLI Novel' });
+  }, 60_000);
+
   it('refuses unknown formats', async () => {
     await expect(
       lnreader('download', 'fixture:novel/abc', '--format', 'pdf'),

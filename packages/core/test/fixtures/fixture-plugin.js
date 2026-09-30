@@ -25,12 +25,18 @@ var FixturePlugin = (function () {
     this.loads = (storage_1.storage.get("loads") || 0) + 1;
     storage_1.storage.set("loads", this.loads);
     this.filters = {
-      order: { type: filterInputs_1.FilterTypes.Picker, label: "Order", value: "popular", options: [] },
+      order: {
+        type: filterInputs_1.FilterTypes.Picker,
+        label: "Order",
+        value: "popular",
+        options: [{ label: "Popular", value: "popular" }, { label: "Newest", value: "new" }],
+      },
     };
   }
   FixturePlugin.prototype.popularNovels = async function (page, options) {
     var order = options.filters ? options.filters.order.value : "none";
-    return [{ name: "Popular " + order + " " + page, path: "novel/abc" }];
+    var kind = options.showLatestNovels ? "Latest" : "Popular";
+    return [{ name: kind + " " + order + " " + page, path: "novel/abc" }];
   };
   FixturePlugin.prototype.searchNovels = async function (term, page) {
     var html = await (0, fetch_1.fetchText)(this.site + "search?q=" + encodeURIComponent(term) + "&page=" + page);
