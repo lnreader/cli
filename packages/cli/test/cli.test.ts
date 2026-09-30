@@ -36,6 +36,14 @@ const lnreader = (...args: string[]) =>
   );
 
 describe('lnreader', () => {
+  it('prints the version from package.json', async () => {
+    const pkg = JSON.parse(
+      await readFile(new URL('../package.json', import.meta.url), 'utf8'),
+    ) as { version: string };
+    const { stdout } = await lnreader('--version');
+    expect(stdout.trim()).toBe(pkg.version);
+  });
+
   it('lists plugins without blacklisted ones', async () => {
     const { stdout } = await lnreader('plugins', 'list', '--json');
     expect(JSON.parse(stdout).map((p: { id: string }) => p.id)).toEqual([
@@ -509,7 +517,7 @@ describe('lnreader for agents', () => {
         other: { command: 'x' },
         lnreader: {
           command: 'npx',
-          args: ['-y', 'lnreader-cli', 'mcp'],
+          args: ['-y', '@lnreader/cli', 'mcp'],
           env: { LNREADER_HOME: home },
         },
       },

@@ -1,4 +1,4 @@
-import type { PluginEntry, Runtime } from '@lnreader-cli/core';
+import type { PluginEntry, Runtime } from '@lnreader/plugin-runtime';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import {

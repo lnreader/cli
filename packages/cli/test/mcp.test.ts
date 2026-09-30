@@ -1,6 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { createRuntime, type Runtime } from '@lnreader-cli/core';
+import { createRuntime, type Runtime } from '@lnreader/plugin-runtime';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';

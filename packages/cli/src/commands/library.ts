@@ -9,7 +9,7 @@ import {
   type PluginRunner,
   type Runtime,
   type UpdateResult,
-} from '@lnreader-cli/core';
+} from '@lnreader/plugin-runtime';
 import * as p from '@clack/prompts';
 import type { Command } from 'commander';
 import pc from 'picocolors';

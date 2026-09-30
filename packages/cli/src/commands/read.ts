@@ -6,7 +6,7 @@ import {
   READ_FORMATS,
   readChapter,
   type ReadFormat,
-} from '@lnreader-cli/core';
+} from '@lnreader/plugin-runtime';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import { openRuntime, resolveNovel, type GlobalOptions } from '../context.js';

@@ -4,12 +4,16 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/coverage/**', 'packages/core/test/fixtures/**'],
+    ignores: [
+      '**/dist/**',
+      '**/coverage/**',
+      'packages/plugin-runtime/test/fixtures/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['**/*.js'],
+    files: ['**/*.js', '**/*.mjs'],
     languageOptions: { globals: globals.node },
   },
   {

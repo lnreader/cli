@@ -1,4 +1,8 @@
-import { ConfigSchema, ERROR_CODES, READ_FORMATS } from '@lnreader-cli/core';
+import {
+  ConfigSchema,
+  ERROR_CODES,
+  READ_FORMATS,
+} from '@lnreader/plugin-runtime';
 import { z } from 'zod';
 
 /*

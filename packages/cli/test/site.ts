@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const FIXTURE = new URL(
-  '../../core/test/fixtures/fixture-plugin.js',
+  '../../plugin-runtime/test/fixtures/fixture-plugin.js',
   import.meta.url,
 );
 const PNG = Buffer.from(

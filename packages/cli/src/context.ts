@@ -7,7 +7,7 @@ import {
   type Plugin,
   type PluginRunner,
   type Runtime,
-} from '@lnreader-cli/core';
+} from '@lnreader/plugin-runtime';
 import pc from 'picocolors';
 import { err, log } from './ui/format.js';
 

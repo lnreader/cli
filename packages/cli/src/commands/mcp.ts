@@ -1,4 +1,4 @@
-import { LnreaderError } from '@lnreader-cli/core';
+import { LnreaderError } from '@lnreader/plugin-runtime';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import type { GlobalOptions } from '../context.js';
@@ -37,7 +37,7 @@ Add it to a client:
   lnreader mcp install --client cursor
 
 Or add this to the client's config by hand:
-  { "mcpServers": { "lnreader": { "command": "npx", "args": ["-y", "lnreader-cli", "mcp"] } } }`,
+  { "mcpServers": { "lnreader": { "command": "npx", "args": ["-y", "@lnreader/cli", "mcp"] } } }`,
     )
     .action(async (_flags, cmd: Command) => {
       // The SDK is only loaded here, so other commands never pay for it.
@@ -56,7 +56,7 @@ Or add this to the client's config by hand:
     )
     .option(
       '--local',
-      'run this installation directly instead of `npx -y lnreader-cli`',
+      'run this installation directly instead of `npx -y @lnreader/cli`',
     )
     .option('--config <file>', 'write to this config file instead')
     .option('--print', 'print the server entry instead of writing it')

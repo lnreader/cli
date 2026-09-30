@@ -1,0 +1,52 @@
+{
+  "name": "@lnreader/cli-browser",
+  "version": "0.0.0",
+  "description": "Optional add-on for @lnreader/cli: solve Cloudflare challenges and log in using your installed Chrome or Edge",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lnreader/cli.git",
+    "directory": "packages/cli-browser"
+  },
+  "homepage": "https://github.com/lnreader/cli/tree/main/packages/cli-browser#readme",
+  "bugs": {
+    "url": "https://github.com/lnreader/cli/issues"
+  },
+  "keywords": [
+    "lnreader",
+    "cloudflare",
+    "playwright",
+    "cookies",
+    "cli"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "playwright-core": "^1.63.0"
+  }
+}

@@ -3,7 +3,7 @@ import {
   loadConfig,
   saveConfig,
   testPlugin,
-} from '@lnreader-cli/core';
+} from '@lnreader/plugin-runtime';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import { openRuntime, type GlobalOptions } from '../context.js';

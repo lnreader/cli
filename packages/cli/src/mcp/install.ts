@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LnreaderError, writeFileAtomic } from '@lnreader-cli/core';
+import { LnreaderError, writeFileAtomic } from '@lnreader/plugin-runtime';
 
 export const MCP_CLIENTS = ['claude-desktop', 'claude-code', 'cursor'] as const;
 export type McpClient = (typeof MCP_CLIENTS)[number];
@@ -70,7 +70,7 @@ function localBin(): string {
 }
 
 /**
- * The server entry: `npx -y lnreader-cli mcp` by default, or this exact
+ * The server entry: `npx -y @lnreader/cli mcp` by default, or this exact
  * installation with `local` (useful before the package is published).
  */
 export function serverEntry(opts: {
@@ -79,7 +79,7 @@ export function serverEntry(opts: {
 }): ServerEntry {
   const entry: ServerEntry = opts.local
     ? { command: process.execPath, args: [localBin(), 'mcp'] }
-    : { command: 'npx', args: ['-y', 'lnreader-cli', 'mcp'] };
+    : { command: 'npx', args: ['-y', '@lnreader/cli', 'mcp'] };
   if (opts.home) entry.env = { LNREADER_HOME: resolve(opts.home) };
   return entry;
 }

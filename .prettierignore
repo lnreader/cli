@@ -1,4 +1,4 @@
 dist
 coverage
 pnpm-lock.yaml
-packages/core/test/fixtures
+packages/plugin-runtime/test/fixtures

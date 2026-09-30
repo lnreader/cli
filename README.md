@@ -4,21 +4,28 @@ Run [LNReader plugins](https://github.com/LNReader/lnreader-plugins) outside the
 
 The CLI loads the same compiled plugins the app uses, straight from the published plugin index, so plugin fixes reach you without a CLI release.
 
-> **Status:** pre-release. Searching, reading, downloading, following novels, browsing sources, settings, browser sign-in and AI agent support (MCP server and agent skill) all work. Not yet published to npm.
+> **Status:** pre-release. Searching, reading, downloading, following novels, browsing sources, settings, browser sign-in and AI agent support (MCP server and agent skill) all work.
 
 ## Install
 
 Requires Node.js 22 or newer.
 
 ```bash
-# From source (until the npm package is published)
+npx @lnreader/cli --help        # run without installing
+npm i -g @lnreader/cli          # or install the `lnreader` command
+lnreader --help
+```
+
+From source:
+
+```bash
 git clone https://github.com/lnreader/cli.git && cd cli
 pnpm install
 pnpm link:cli              # builds, then puts `lnreader` on your PATH via npm link
 lnreader --help
 ```
 
-After pulling new changes, run `pnpm build` again; the linked command picks up the new build. If `lnreader` is still not found, check that npm's global bin directory (`npm prefix -g`, plus `/bin` on macOS and Linux) is on your `PATH`. To remove it: `npm unlink -g lnreader-cli`.
+After pulling new changes, run `pnpm build` again; the linked command picks up the new build. If `lnreader` is still not found, check that npm's global bin directory (`npm prefix -g`, plus `/bin` on macOS and Linux) is on your `PATH`. To remove it: `npm unlink -g @lnreader/cli`.
 
 ## Usage
 
@@ -141,7 +148,7 @@ By default the CLI makes at most 2 concurrent requests per host with a 500 ms ga
 Some sites block scripts with a Cloudflare check. `lnreader auth` opens the site in your installed Chrome or Edge, where you pass the check (or log in to an account you have). It saves the cookies together with that browser's User-Agent, which the clearance cookie is tied to:
 
 ```bash
-npm install -g @lnreader-cli/browser   # one-time: the optional add-on (no browser download)
+npm i -g @lnreader/cli-browser         # one-time: the optional add-on (no browser download)
 lnreader auth novelupdates             # finishes by itself once the check clears, or press Enter
 lnreader auth novelupdates --browser msedge
 lnreader auth novelupdates --clear     # forget the saved cookies
@@ -167,7 +174,7 @@ Local agents (Claude Code, Claude Desktop, Codex, Cursor and other MCP clients) 
 
 ```bash
 lnreader mcp install --client claude-desktop   # or claude-code, cursor; --scope project for this folder only
-lnreader mcp install --client claude-code --local   # run this checkout instead of `npx lnreader-cli`
+lnreader mcp install --client claude-code --local   # run this checkout instead of `npx @lnreader/cli`
 lnreader mcp install --print                   # just print the config entry
 ```
 
@@ -176,7 +183,7 @@ lnreader mcp install --print                   # just print the config entry
 ```json
 {
   "mcpServers": {
-    "lnreader": { "command": "npx", "args": ["-y", "lnreader-cli", "mcp"] }
+    "lnreader": { "command": "npx", "args": ["-y", "@lnreader/cli", "mcp"] }
   }
 }
 ```
@@ -217,7 +224,7 @@ The skill prefers the MCP tools when they are available and falls back to `lnrea
 
 ### Guardrails
 
-Every limit lives in `@lnreader-cli/core`, so neither the CLI nor MCP can skip it:
+Every limit lives in `@lnreader/plugin-runtime`, so neither the CLI nor MCP can skip it:
 
 - **Local only.** The MCP server only speaks stdio. There is no HTTP transport, and `lnreader mcp` refuses to start without a client on stdin.
 - **Rate limits.** Agent traffic goes through the same per-host limiter as the CLI. Each site also has a **per-session budget of 300 uncached chapter fetches** (`sessionFetchBudget`). Reads from the cache are free. When the budget runs out, tools return `BUDGET_EXCEEDED` until the user raises it. The change takes effect without restarting the server.
@@ -246,20 +253,23 @@ plugins.min.json ──► registry ──► sandbox (node:vm) ──► chapte
 
 The code is a pnpm monorepo:
 
-| Package            | Contents                                                                                                      |
-| ------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `packages/core`    | `@lnreader-cli/core`: plugin runtime, fetch layer, storage, EPUB builder                                      |
-| `packages/cli`     | `lnreader-cli`, the `lnreader` binary: commands, terminal UI and the MCP server                               |
-| `packages/browser` | `@lnreader-cli/browser`: optional add-on for `lnreader auth` (playwright-core driving your installed browser) |
+| Package                   | Contents                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `packages/plugin-runtime` | `@lnreader/plugin-runtime`: plugin runtime, fetch layer, storage, EPUB builder                                |
+| `packages/cli`            | `@lnreader/cli`, the `lnreader` binary: commands, terminal UI and the MCP server                              |
+| `packages/cli-browser`    | `@lnreader/cli-browser`: optional add-on for `lnreader auth` (playwright-core driving your installed browser) |
+
+Releases are managed with changesets; see [RELEASING.md](RELEASING.md).
 
 ## Development
 
 ```bash
 pnpm install
-pnpm --filter lnreader-cli dev --help   # run the CLI from source
+pnpm --filter @lnreader/cli dev --help   # run the CLI from source
 pnpm test                  # unit + end-to-end tests
 EPUBCHECK_JAR=/path/to/epubcheck.jar pnpm test   # also validate EPUBs with epubcheck
 pnpm lint && pnpm typecheck && pnpm format:check
+pnpm build && pnpm pack:check   # pack, install the tarballs in a temp project and run them
 pnpm check:plugins         # download and load every upstream plugin in the sandbox
 ```
 
@@ -269,4 +279,4 @@ If a source returns nothing or broken chapters, the plugin itself usually needs 
 
 ## License
 
-[MIT](LICENSE). Plugin types and constants under `packages/core/src/types` are vendored from [LNReader/lnreader-plugins](https://github.com/LNReader/lnreader-plugins) (MIT).
+[MIT](LICENSE). Plugin types and constants under `packages/plugin-runtime/src/types` are vendored from [LNReader/lnreader-plugins](https://github.com/LNReader/lnreader-plugins) (MIT).

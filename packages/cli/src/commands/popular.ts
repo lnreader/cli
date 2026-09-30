@@ -2,7 +2,7 @@ import {
   describeFilter,
   parseFilterArgs,
   type Runtime,
-} from '@lnreader-cli/core';
+} from '@lnreader/plugin-runtime';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import { openRuntime, saveLastSearch, type GlobalOptions } from '../context.js';

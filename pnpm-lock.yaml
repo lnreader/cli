@@ -14,9 +14,9 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.11.0)
-      '@lnreader-cli/core':
+      '@lnreader/plugin-runtime':
         specifier: workspace:*
-        version: link:packages/core
+        version: link:packages/plugin-runtime
       '@types/node':
         specifier: ^22.20.4
         version: 22.20.4
@@ -45,20 +45,14 @@ importers:
         specifier: ^5.0.2
         version: 5.0.2(@types/node@22.20.4)(vite@8.3.1(@types/node@22.20.4)(esbuild@0.27.7)(tsx@4.23.15)(yaml@2.9.1))
 
-  packages/browser:
-    dependencies:
-      playwright-core:
-        specifier: ^1.63.0
-        version: 1.63.0
-
   packages/cli:
     dependencies:
       '@clack/prompts':
         specifier: ^1.8.1
         version: 1.8.1
-      '@lnreader-cli/core':
+      '@lnreader/plugin-runtime':
         specifier: workspace:*
-        version: link:../core
+        version: link:../plugin-runtime
       '@modelcontextprotocol/sdk':
         specifier: ^1.31.0
         version: 1.31.0(zod@4.6.5)
@@ -72,11 +66,17 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
-      '@lnreader-cli/browser':
+      '@lnreader/cli-browser':
         specifier: workspace:*
-        version: link:../browser
+        version: link:../cli-browser
 
-  packages/core:
+  packages/cli-browser:
+    dependencies:
+      playwright-core:
+        specifier: ^1.63.0
+        version: 1.63.0
+
+  packages/plugin-runtime:
     dependencies:
       '@noble/ciphers':
         specifier: ^2.4.0
@@ -931,9 +931,6 @@ packages:
 
   '@types/node@22.20.4':
     resolution: {integrity: sha512-zJRE40jpHtKqE/C4fgHrAKQLJuSpzEnP9ff9Y7YtoR3Wd2pwqzlekDeEuUQXjRd+QCYnVnNwuJYmhdk9XV8gvA==}
-
-  '@types/node@26.6.3':
-    resolution: {integrity: sha512-dsqMQQoeTLqu9wynDD00q573mNzso3IdQOAfHRJqLCcmCFPoGo9A1bDpUcv/9tnKpErQWv9uKeGfl37EIS02Yg==}
 
   '@types/sanitize-html@2.16.2':
     resolution: {integrity: sha512-kuAbgDCFv418flrp3z4o/4ufLA/5ovmXRH0L419iZCPGO7w00znjeDI5Wy/KZWNIBpDQc7hucCK+J5almB6FyA==}
@@ -2104,9 +2101,6 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
-  undici-types@8.9.0:
-    resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
-
   undici@7.30.0:
     resolution: {integrity: sha512-dkrQXeHSaoamnItlYbmzG0wFYrM0ZwDxCIg0A7aKjTyyhh9svRzCNFEzV+Vm05/yehjCzjDZ31KXfGEjYSztDQ==}
     engines: {node: '>=20.18.1'}
@@ -2823,10 +2817,6 @@ snapshots:
   '@types/node@22.20.4':
     dependencies:
       undici-types: 6.21.0
-
-  '@types/node@26.6.3':
-    dependencies:
-      undici-types: 8.9.0
 
   '@types/sanitize-html@2.16.2':
     dependencies:
@@ -3804,7 +3794,7 @@ snapshots:
       '@protobufjs/path': 1.1.2
       '@protobufjs/pool': 1.1.0
       '@protobufjs/utf8': 1.1.2
-      '@types/node': 26.6.3
+      '@types/node': 22.20.4
       long: 5.3.2
 
   proxy-addr@2.0.8:
@@ -4119,8 +4109,6 @@ snapshots:
   ufo@1.6.4: {}
 
   undici-types@6.21.0: {}
-
-  undici-types@8.9.0: {}
 
   undici@7.30.0: {}
 

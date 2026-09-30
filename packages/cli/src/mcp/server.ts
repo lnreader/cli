@@ -16,7 +16,7 @@ import {
   type LibraryNovel,
   type PluginRunner,
   type Runtime,
-} from '@lnreader-cli/core';
+} from '@lnreader/plugin-runtime';
 import {
   McpServer,
   ResourceTemplate,
@@ -26,9 +26,7 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { openRuntime, resolveNovel, type GlobalOptions } from '../context.js';
 import { searchPlugins } from '../commands/search.js';
-
-declare const __VERSION__: string;
-const VERSION = typeof __VERSION__ === 'string' ? __VERSION__ : '0.0.0-dev';
+import { VERSION } from '../version.js';
 
 /** Novel pages this fresh are reused across calls, e.g. while paging chapters. */
 const NOVEL_MAX_AGE_MS = 10 * 60 * 1000;

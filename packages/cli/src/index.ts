@@ -1,4 +1,4 @@
-import { errorInfo } from '@lnreader-cli/core';
+import { errorInfo } from '@lnreader/plugin-runtime';
 import { Command, CommanderError } from 'commander';
 import { registerAuth } from './commands/auth.js';
 import { registerConfig } from './commands/config.js';
@@ -13,13 +13,12 @@ import { registerSchema } from './commands/schema.js';
 import { registerSearch } from './commands/search.js';
 import { registerSkill } from './commands/skill.js';
 import { log, printJson, setQuiet } from './ui/format.js';
-
-declare const __VERSION__: string;
+import { VERSION } from './version.js';
 
 const program = new Command()
   .name('lnreader')
   .description('Search LNReader plugin sources and download novels as EPUB')
-  .version(typeof __VERSION__ === 'string' ? __VERSION__ : '0.0.0-dev')
+  .version(VERSION)
   .option('--home <dir>', 'store config, cache and data under this directory')
   .option('--refresh', 'ignore cached plugin indexes')
   .option('-v, --verbose', 'show plugin logs and per-plugin errors')
@@ -95,5 +94,8 @@ try {
   if (info.hint) log.hint(info.hint);
   if (program.opts().verbose && e instanceof Error && e.stack)
     console.error(e.stack);
-  await exit(info.code === 'USAGE' ? 2 : 1);
+  const exitCode = (e as { exitCode?: unknown } | undefined)?.exitCode;
+  await exit(
+    typeof exitCode === 'number' ? exitCode : info.code === 'USAGE' ? 2 : 1,
+  );
 }

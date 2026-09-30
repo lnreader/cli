@@ -1,5 +1,5 @@
 import * as p from '@clack/prompts';
-import { LnreaderError } from '@lnreader-cli/core';
+import { LnreaderError } from '@lnreader/plugin-runtime';
 
 /** A required argument is missing and there is nobody to ask; exits 2. */
 export class MissingArgumentError extends LnreaderError {

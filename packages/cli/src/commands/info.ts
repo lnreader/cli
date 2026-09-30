@@ -1,4 +1,4 @@
-import type { Plugin, PluginRunner } from '@lnreader-cli/core';
+import type { Plugin, PluginRunner } from '@lnreader/plugin-runtime';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import { openRuntime, resolveNovel, type GlobalOptions } from '../context.js';

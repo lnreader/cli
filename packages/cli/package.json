@@ -1,18 +1,41 @@
 {
-  "name": "lnreader-cli",
-  "version": "0.1.0",
+  "name": "@lnreader/cli",
+  "version": "0.0.0",
   "description": "Search LNReader plugin sources and download novels as EPUB",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lnreader/cli.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/lnreader/cli/tree/main/packages/cli#readme",
+  "bugs": {
+    "url": "https://github.com/lnreader/cli/issues"
+  },
+  "keywords": [
+    "lnreader",
+    "light-novel",
+    "web-novel",
+    "epub",
+    "cli",
+    "mcp",
+    "downloader"
+  ],
   "type": "module",
   "bin": {
-    "lnreader": "./bin/lnreader.js"
+    "lnreader": "./dist/index.js"
   },
   "files": [
-    "bin",
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "build": "tsup",
@@ -21,21 +44,13 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.8.1",
-    "@lnreader-cli/core": "workspace:*",
+    "@lnreader/plugin-runtime": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.31.0",
     "commander": "^15.0.0",
     "picocolors": "^1.1.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@lnreader-cli/browser": "workspace:*"
-  },
-  "peerDependencies": {
-    "@lnreader-cli/browser": "workspace:*"
-  },
-  "peerDependenciesMeta": {
-    "@lnreader-cli/browser": {
-      "optional": true
-    }
+    "@lnreader/cli-browser": "workspace:*"
   }
 }

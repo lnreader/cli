@@ -4,8 +4,8 @@
     "rootDir": "..",
     "noEmit": true,
     "paths": {
-      "@lnreader-cli/core": ["../core/src/index.ts"],
-      "@lnreader-cli/browser": ["../browser/src/index.ts"]
+      "@lnreader/plugin-runtime": ["../plugin-runtime/src/index.ts"],
+      "@lnreader/cli-browser": ["../cli-browser/src/index.ts"]
     }
   },
   "include": ["src", "test"]

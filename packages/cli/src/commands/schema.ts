@@ -1,4 +1,4 @@
-import { LnreaderError } from '@lnreader-cli/core';
+import { LnreaderError } from '@lnreader/plugin-runtime';
 import type { Command } from 'commander';
 import { jsonSchema, OUTPUT_SCHEMAS, type SchemaName } from '../schemas.js';
 import { out, printJson } from '../ui/format.js';

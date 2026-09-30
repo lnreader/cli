@@ -1,4 +1,4 @@
-import type { FollowOptions, Runtime } from '@lnreader-cli/core';
+import type { FollowOptions, Runtime } from '@lnreader/plugin-runtime';
 import pc from 'picocolors';
 import { runDownload, type DownloadFlags } from '../commands/download.js';
 import { printInfo, type ParsedNovel } from '../commands/info.js';

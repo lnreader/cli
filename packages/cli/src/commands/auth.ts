@@ -1,4 +1,5 @@
 import { createInterface } from 'node:readline';
+import { LnreaderError } from '@lnreader/plugin-runtime';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import { openRuntime, type GlobalOptions } from '../context.js';
@@ -12,12 +13,26 @@ type AuthFlags = {
   timeout: string;
 };
 
-type BrowserAddon = typeof import('@lnreader-cli/browser');
+type BrowserAddon = typeof import('@lnreader/cli-browser');
+
+/** The add-on isn't installed: a setup problem, so exit code 2. */
+export class MissingAddonError extends LnreaderError {
+  readonly exitCode = 2;
+  constructor() {
+    super(
+      'NEEDS_CONFIG',
+      'Browser sign-in needs the optional add-on. Install it with:\n\n' +
+        '  npm i -g @lnreader/cli-browser\n\n' +
+        'It drives your installed Chrome or Edge; no browser is downloaded.',
+      'Alternatively pass --cookies <cookies.txt> with --user-agent.',
+    );
+  }
+}
 
 /** The optional add-on, or undefined when it isn't installed. */
 async function loadAddon(): Promise<BrowserAddon | undefined> {
   try {
-    return await import('@lnreader-cli/browser');
+    return await import('@lnreader/cli-browser');
   } catch (e) {
     const code = (e as NodeJS.ErrnoException).code;
     if (code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND')
@@ -70,14 +85,7 @@ export function registerAuth(program: Command) {
         }
 
         const addon = await loadAddon();
-        if (!addon) {
-          throw new Error(
-            'Browser sign-in needs the optional add-on. Install it with:\n\n' +
-              '  npm install -g @lnreader-cli/browser\n\n' +
-              'It drives your installed Chrome or Edge; no browser is downloaded. ' +
-              'Alternatively pass --cookies <cookies.txt> with --user-agent.',
-          );
-        }
+        if (!addon) throw new MissingAddonError();
 
         const url = flags.url ?? runner.plugin.site;
         if (!url)

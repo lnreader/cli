@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LnreaderError, writeFileAtomic } from '@lnreader-cli/core';
+import { LnreaderError, writeFileAtomic } from '@lnreader/plugin-runtime';
 import type { Command } from 'commander';
 import { log, out, printJson } from '../ui/format.js';
 

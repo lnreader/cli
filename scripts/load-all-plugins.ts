@@ -6,7 +6,7 @@
  *   pnpm check:plugins [--refresh]
  */
 import { join } from 'node:path';
-import { createRuntime, loadPlugin } from '@lnreader-cli/core';
+import { createRuntime, loadPlugin } from '@lnreader/plugin-runtime';
 
 const rt = await createRuntime({ logger: { debug: () => {}, warn: () => {} } });
 const entries = await rt.registry.list(process.argv.includes('--refresh'));

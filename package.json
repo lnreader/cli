@@ -11,6 +11,7 @@
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
     "lint": "eslint .",
+    "pack:check": "node scripts/pack-check.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "changeset": "changeset",
@@ -20,7 +21,7 @@
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
     "@eslint/js": "^10.0.1",
-    "@lnreader-cli/core": "workspace:*",
+    "@lnreader/plugin-runtime": "workspace:*",
     "@types/node": "^22.20.4",
     "eslint": "^10.11.0",
     "globals": "^17.12.0",
