@@ -383,7 +383,7 @@ function makeImageFetcher(opts: DownloadOptions) {
       const res = await http.request(
         url,
         { method: init?.method ?? 'GET', headers, body: init?.body },
-        { jar, retries: 2, signal: opts.signal },
+        { jar, retries: 2, signal: opts.signal, userAgent: runner.userAgent },
       );
       if (!res.ok) return undefined;
       const data = new Uint8Array(await res.arrayBuffer());

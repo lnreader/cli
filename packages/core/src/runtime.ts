@@ -60,6 +60,7 @@ export async function createRuntime(
     paths,
     timeoutMs: config.pluginTimeoutMs,
     logger: options.logger,
+    userAgentOverride: options.overrides?.userAgent,
   });
   let library: Library | undefined;
   return {

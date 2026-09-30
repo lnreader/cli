@@ -6,6 +6,9 @@ export default defineConfig({
   // depend on a prior `pnpm build`.
   resolve: {
     alias: {
+      '@lnreader-cli/browser': fileURLToPath(
+        new URL('./packages/browser/src/index.ts', import.meta.url),
+      ),
       '@lnreader-cli/core': fileURLToPath(
         new URL('./packages/core/src/index.ts', import.meta.url),
       ),

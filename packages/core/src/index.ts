@@ -14,7 +14,7 @@ export {
   type FetchLike,
 } from './net/client.js';
 export { HostLimiter } from './net/limiter.js';
-export { CookieStore } from './net/cookies.js';
+export { CookieStore, type SimpleCookie } from './net/cookies.js';
 
 export {
   PluginRegistry,

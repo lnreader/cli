@@ -314,6 +314,18 @@ describe('lnreader', () => {
     expect(JSON.parse(info.stdout)).toMatchObject({ name: 'CLI Novel' });
   }, 60_000);
 
+  it('clears saved sign-in data and validates the browser', async () => {
+    const cleared = await lnreader('auth', 'fixture', '--clear');
+    expect(cleared.stderr).toContain(
+      'Cleared saved cookies and User-Agent for fixture',
+    );
+    await expect(
+      lnreader('auth', 'fixture', '--browser', 'firefox'),
+    ).rejects.toMatchObject({
+      stderr: expect.stringContaining('--browser must be chrome or msedge'),
+    });
+  }, 30_000);
+
   it('refuses unknown formats', async () => {
     await expect(
       lnreader('download', 'fixture:novel/abc', '--format', 'pdf'),

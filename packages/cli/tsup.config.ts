@@ -5,6 +5,8 @@ export default defineConfig({
   format: ['esm'],
   target: 'node22',
   clean: true,
+  // Optional add-on, loaded only by `lnreader auth` when installed.
+  external: ['@lnreader-cli/browser'],
   sourcemap: true,
   banner: { js: '#!/usr/bin/env node' },
   define: {

@@ -28,6 +28,8 @@ export class PluginRunner {
     readonly entry: PluginEntry,
     readonly plugin: Plugin.PluginBase,
     private readonly timeoutMs: number,
+    /** User-Agent this plugin's requests use, when not the default. */
+    readonly userAgent?: string,
   ) {}
 
   get id() {
@@ -152,6 +154,8 @@ export type PluginLoaderOptions = {
   paths: Paths;
   timeoutMs: number;
   logger?: Logger;
+  /** Force this User-Agent for every plugin (the `--user-agent` flag). */
+  userAgentOverride?: string;
 };
 
 export class PluginLoader {
@@ -178,12 +182,15 @@ export class PluginLoader {
     const { registry, http, cookies, timeoutMs, logger } = this.options;
     const entry = await registry.get(id);
     const code = await registry.getCode(entry);
+    const userAgent =
+      this.options.userAgentOverride ?? (await cookies.userAgent(entry.id));
     const plugin = loadPlugin(code, entry.id, {
       http,
       jar: await cookies.jar(entry.id),
       storageFile: this.storageFile(entry.id),
+      userAgent,
       logger,
     });
-    return new PluginRunner(entry, plugin, timeoutMs);
+    return new PluginRunner(entry, plugin, timeoutMs, userAgent);
   }
 }

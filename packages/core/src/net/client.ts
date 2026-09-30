@@ -11,6 +11,8 @@ export type RequestOptions = {
   /** Retries after the first attempt, for 429, 5xx and network errors. */
   retries?: number;
   signal?: AbortSignal;
+  /** Default User-Agent for this request, e.g. the one a plugin's cookies belong to. */
+  userAgent?: string;
 };
 
 export type HttpClientOptions = LimiterOptions & {
@@ -142,7 +144,7 @@ export class HttpClient {
       if (!baseHeaders.has(k)) baseHeaders.set(k, v);
     }
     if (!baseHeaders.has('user-agent'))
-      baseHeaders.set('user-agent', this.options.userAgent);
+      baseHeaders.set('user-agent', opts.userAgent ?? this.options.userAgent);
 
     for (let hop = 0; hop <= 10; hop++) {
       const headers = new Headers(baseHeaders);

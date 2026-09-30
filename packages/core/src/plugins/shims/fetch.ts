@@ -20,6 +20,8 @@ type ProtoRequestInit = {
 export type FetchShimDeps = {
   http: HttpClient;
   jar: CookieJar;
+  /** User-Agent for this plugin's requests (see `lnreader auth`). */
+  userAgent?: string;
 };
 
 type HeadersInit = ConstructorParameters<typeof Headers>[0];
@@ -42,10 +44,11 @@ function toRequestInit(init?: FetchInit): RequestInit {
 }
 
 /** `@libs/fetch`, routed through the rate-limited client and the plugin's cookie jar. */
-export function createFetchShim({ http, jar }: FetchShimDeps) {
+export function createFetchShim({ http, jar, userAgent }: FetchShimDeps) {
   const fetchApi = (url: string, init?: FetchInit): Promise<Response> =>
     http.request(String(url), toRequestInit(init), {
       jar,
+      userAgent,
       signal: currentSignal(),
     });
 
