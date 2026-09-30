@@ -65,6 +65,8 @@ export type DownloadOptions = {
   retries?: number;
   /** Use only cached data: no metadata refresh, no chapter fetches. */
   offline?: boolean;
+  /** Metadata already fetched this run (e.g. by an interactive picker); skips `parseNovel`. */
+  prefetched?: Plugin.SourceNovel & { chapters: Plugin.ChapterItem[] };
   onEvent?: (event: DownloadEvent) => void;
   signal?: AbortSignal;
   sleep?: (ms: number) => Promise<void>;
@@ -118,9 +120,11 @@ export async function downloadNovel(
     fromCache = true;
   } else {
     try {
-      const parsed = await runner.parseNovel(novelPath, (page, total) =>
-        onEvent?.({ type: 'page', page, total }),
-      );
+      const parsed =
+        opts.prefetched ??
+        (await runner.parseNovel(novelPath, (page, total) =>
+          onEvent?.({ type: 'page', page, total }),
+        ));
       ({ chapters, ...novel } = parsed);
       await cache.setNovel(
         {

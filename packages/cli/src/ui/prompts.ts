@@ -1,42 +1,100 @@
 import * as p from '@clack/prompts';
-import { isTTY } from './format.js';
 
 export class MissingArgumentError extends Error {}
 
-function unwrap<T>(value: T | symbol): T {
-  if (p.isCancel(value)) {
-    p.cancel('Cancelled');
-    process.exit(130);
-  }
-  return value as T;
+/**
+ * Prompts only when a person is at the keyboard: both stdin and stdout are
+ * TTYs, not in CI, and neither `--json` nor `--no-interactive` was passed.
+ */
+export function isInteractive(
+  opts: { interactive?: boolean; json?: boolean } = {},
+): boolean {
+  const ci =
+    process.env.CI && process.env.CI !== 'false' && process.env.CI !== '0';
+  return (
+    opts.interactive !== false &&
+    !opts.json &&
+    !ci &&
+    !!process.stdin.isTTY &&
+    !!process.stdout.isTTY
+  );
 }
 
-/** Ask for a value in a TTY; fail with a usage hint when non-interactive. */
+/** The value, or undefined when the user pressed Esc / Ctrl-C. */
+function orUndefined<T>(value: T | symbol): T | undefined {
+  return p.isCancel(value) ? undefined : (value as T);
+}
+
+/** Ask for a value when interactive; fail with a usage hint otherwise. */
 export async function requireText(
   value: string | undefined,
   message: string,
   hint: string,
+  opts: { interactive?: boolean; json?: boolean } = {},
 ) {
   if (value) return value;
-  if (!isTTY()) throw new MissingArgumentError(`Missing ${hint}`);
-  return unwrap<string>(
+  if (!isInteractive(opts)) throw new MissingArgumentError(`Missing ${hint}`);
+  const answer = await askText(message, {
+    validate: v => (v.trim() ? undefined : 'Required'),
+  });
+  if (answer === undefined) {
+    p.cancel('Cancelled');
+    process.exit(130);
+  }
+  return answer.trim();
+}
+
+export async function askText(
+  message: string,
+  opts: {
+    initialValue?: string;
+    placeholder?: string;
+    validate?: (v: string) => string | undefined;
+  } = {},
+): Promise<string | undefined> {
+  return orUndefined<string>(
     await p.text({
       message,
-      validate: v => (v?.trim() ? undefined : 'Required'),
+      initialValue: opts.initialValue,
+      placeholder: opts.placeholder,
+      validate: opts.validate ? v => opts.validate!(v ?? '') : undefined,
     }),
-  ).trim();
+  );
 }
 
-export async function select<T extends string>(
+export type Choice<T> = { value: T; label: string; hint?: string };
+
+export async function askSelect<T extends string>(
   message: string,
-  options: Array<{ value: T; label: string; hint?: string }>,
-): Promise<T> {
-  return unwrap(await p.select({ message, options: options as never })) as T;
+  options: Choice<T>[],
+  initialValue?: T,
+): Promise<T | undefined> {
+  return orUndefined<T>(
+    await p.select<T>({ message, options: options as never, initialValue }),
+  );
 }
 
-export async function confirm(
+/** Type-to-filter list; matches the label and the hint. */
+export async function askSearchable<T extends string>(
   message: string,
-  initialValue = true,
-): Promise<boolean> {
-  return unwrap<boolean>(await p.confirm({ message, initialValue }));
+  options: Choice<T>[],
+  initialValue?: T,
+): Promise<T | undefined> {
+  return orUndefined<T>(
+    await p.autocomplete<T>({
+      message,
+      options: options as never,
+      initialValue,
+      maxItems: 12,
+      placeholder: 'Type to filter',
+      filter: (search, option) =>
+        `${option.label ?? ''} ${option.hint ?? ''}`
+          .toLowerCase()
+          .includes(search.toLowerCase()),
+    }),
+  );
+}
+
+export function spinner() {
+  return p.spinner();
 }

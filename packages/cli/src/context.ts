@@ -16,6 +16,8 @@ export type GlobalOptions = {
   verbose?: boolean;
   userAgent?: string;
   cookies?: string;
+  /** False with `--no-interactive`. */
+  interactive?: boolean;
 };
 
 export async function openRuntime(opts: GlobalOptions): Promise<Runtime> {

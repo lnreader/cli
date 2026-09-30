@@ -168,6 +168,18 @@ describe('lnreader', () => {
     });
   });
 
+  it('prints numbered results when not interactive', async () => {
+    const { stdout, stderr } = await lnreader(
+      '--no-interactive',
+      'search',
+      'x',
+      '-p',
+      'fixture',
+    );
+    expect(stdout).toMatch(/1\s+Found x/);
+    expect(stderr).toContain('lnreader download <n>');
+  });
+
   it('refuses unknown formats', async () => {
     await expect(
       lnreader('download', 'fixture:novel/abc', '--format', 'pdf'),

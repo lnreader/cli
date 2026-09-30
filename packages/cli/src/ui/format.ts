@@ -1,10 +1,8 @@
 import pc from 'picocolors';
 
-export const isTTY = () => !!process.stdout.isTTY && !!process.stdin.isTTY;
-
 /** Human output goes to stdout; diagnostics go to stderr so `--json` stays clean. */
-export const out = (line = '') => process.stdout.write(line + '\n');
-export const err = (line = '') => process.stderr.write(line + '\n');
+export const out = (line = ''): void => void process.stdout.write(line + '\n');
+export const err = (line = ''): void => void process.stderr.write(line + '\n');
 
 export const log = {
   info: (m: string) => err(`${pc.cyan('•')} ${m}`),

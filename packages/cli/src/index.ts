@@ -19,6 +19,7 @@ const program = new Command()
     '--user-agent <ua>',
     'User-Agent for requests (match the browser your cookies came from)',
   )
+  .option('--no-interactive', 'never prompt; print plain numbered results')
   .option(
     '--cookies <file>',
     'import a Netscape cookies.txt into the plugin’s cookie jar',

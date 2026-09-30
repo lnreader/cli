@@ -22,8 +22,19 @@ After pulling new changes, run `pnpm build` again; the linked command picks up t
 
 ## Usage
 
+In a terminal, the quickest way is to let the CLI walk you through it:
+
 ```bash
-lnreader search "mother of learning" --plugin royalroad
+lnreader download                      # asks what to search for, then pick a result and options
+lnreader search "mother of learning"   # pick a result from the list, then show info or download
+```
+
+Results open in a list you can filter by typing. Pick a novel to see its details, then choose **Download**, **Back to results** or **Quit**. Download asks which chapters to include and whether to split into volumes. It then prints the equivalent command, so you can reuse it in scripts.
+
+Everything also works non-interactively with flags. When output is piped, in CI, with `--json` or with `--no-interactive`, `search` prints numbered results instead:
+
+```bash
+lnreader search "mother of learning" --plugin royalroad --no-interactive
 lnreader info 1                        # a result number from the last search
 lnreader download 1                    # writes "<Title>.epub" to the current directory
 
@@ -40,7 +51,7 @@ lnreader download <novel> --offline    # rebuild from the cache, no network
 - a path together with `--plugin <id>`,
 - a result number from the last `search`.
 
-Every command works non-interactively. In a terminal, missing arguments are prompted for.
+`download` and `info` with no `<novel>` start the interactive search; `--plugin` and `--lang` narrow which sources it searches.
 
 ### Commands
 
@@ -52,7 +63,7 @@ Every command works non-interactively. In a terminal, missing arguments are prom
 | `info <novel>`                     | Show metadata and chapter count    | `--plugin`, `--chapters`, `--json`                                                  |
 | `download <novel>`                 | Build an EPUB                      | `--from`, `--to`, `--split`, `--out`, `--no-images`, `--offline`, `--css`, `--json` |
 
-Global flags: `--home <dir>`, `--refresh` (ignore cached plugin indexes), `--verbose`, `--user-agent <ua>`, `--cookies <cookies.txt>`.
+Global flags: `--home <dir>`, `--refresh` (ignore cached plugin indexes), `--verbose`, `--no-interactive`, `--user-agent <ua>`, `--cookies <cookies.txt>`.
 
 ### Downloads are resumable
 
