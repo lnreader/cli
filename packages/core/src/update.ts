@@ -4,8 +4,11 @@ import {
   type DownloadEvent,
   type DownloadResult,
 } from './download.js';
+import { errorInfo } from './errors.js';
+import type { FetchBudget } from './net/budget.js';
 import type { HttpClient } from './net/client.js';
 import type { PluginRunner } from './plugins/loader.js';
+import { hostOf } from './plugins/registry.js';
 import type { ChapterCache } from './store/cache.js';
 import type { Library, LibraryNovel } from './store/library.js';
 
@@ -20,6 +23,9 @@ export type UpdateOptions = {
   delta?: boolean;
   /** Metadata already fetched this run; skips a second `parseNovel`. */
   prefetched?: Awaited<ReturnType<PluginRunner['parseNovel']>>;
+  /** Write here instead of the novel's own output folder. */
+  outDir?: string;
+  budget?: FetchBudget;
   onEvent?: (event: DownloadEvent) => void;
   signal?: AbortSignal;
   sleep?: (ms: number) => Promise<void>;
@@ -68,7 +74,8 @@ export async function updateNovel(opts: UpdateOptions): Promise<UpdateResult> {
     http: opts.http,
     jar: opts.jar,
     prefetched: parsed,
-    out: options.outDir,
+    out: opts.outDir ?? options.outDir,
+    budget: opts.budget,
     split,
     from,
     noImages: options.noImages,
@@ -101,5 +108,81 @@ export async function updateNovel(opts: UpdateOptions): Promise<UpdateResult> {
     added: fresh.map(f => f.index),
     files: result.files,
     failed: result.failed,
+  };
+}
+
+export type CheckResult = {
+  total: number;
+  /** Chapters not yet delivered in a book, in list order. */
+  fresh: Array<{ index: number; name: string; path: string }>;
+  /** How many of `fresh` are now in the chapter cache. */
+  cached: number;
+  failed: Array<{ index: number; name: string; error: string }>;
+};
+
+/**
+ * Check a followed novel for undelivered chapters and fetch them into the
+ * cache, without writing any book. Delivery happens later, e.g. with a
+ * delta download.
+ */
+export async function checkNovel(opts: {
+  library: Library;
+  novel: LibraryNovel;
+  runner: PluginRunner;
+  cache: ChapterCache;
+  budget?: FetchBudget;
+  signal?: AbortSignal;
+}): Promise<CheckResult> {
+  const { library, novel, runner, cache } = opts;
+  const parsed = await runner.parseNovel(novel.path);
+  const { chapters, ...meta } = parsed;
+  await cache.setNovel(
+    {
+      pluginId: runner.id,
+      pluginVersion: runner.entry.version,
+      novel: meta,
+      chapters,
+      fetchedAt: new Date().toISOString(),
+    },
+    novel.path,
+  );
+  library.recordCheck(novel.id, parsed, chapters.length);
+  const known = library.knownPaths(novel.id);
+  const fresh = chapters
+    .map((c, i) => ({ index: i + 1, name: c.name, path: c.path }))
+    .filter(c => !known.has(c.path));
+
+  const missing: typeof fresh = [];
+  for (const c of fresh) {
+    if ((await cache.getChapter(runner.id, novel.path, c.path)) === undefined)
+      missing.push(c);
+  }
+  const host = hostOf(runner.plugin.site) ?? runner.id;
+  await opts.budget?.ensure(host, missing.length);
+
+  const failed: CheckResult['failed'] = [];
+  for (const c of missing) {
+    if (opts.signal?.aborted) throw opts.signal.reason;
+    opts.budget?.take(host);
+    try {
+      const html = await runner.parseChapter(c.path);
+      if (!html.replace(/<[^>]*>|&nbsp;|\s/g, '') && !/<img\b/i.test(html))
+        throw new Error('empty chapter');
+      await cache.setChapter(runner.id, novel.path, c.path, html);
+    } catch (err) {
+      // Every other chapter would hit the same bot check; stop here.
+      if (errorInfo(err).code === 'NEEDS_AUTH') throw err;
+      failed.push({
+        index: c.index,
+        name: c.name,
+        error: (err as Error).message,
+      });
+    }
+  }
+  return {
+    total: chapters.length,
+    fresh,
+    cached: fresh.length - failed.length,
+    failed,
   };
 }

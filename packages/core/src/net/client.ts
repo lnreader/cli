@@ -1,4 +1,5 @@
 import type { CookieJar } from 'tough-cookie';
+import { ChallengeError, HttpError } from '../errors.js';
 import { HostLimiter, type LimiterOptions } from './limiter.js';
 
 export type FetchLike = (
@@ -33,14 +34,7 @@ const DEFAULT_HEADERS: Record<string, string> = {
 
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 
-export class HttpError extends Error {
-  constructor(
-    readonly status: number,
-    readonly url: string,
-  ) {
-    super(`HTTP ${status} for ${url}`);
-  }
-}
+export { HttpError };
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -66,6 +60,27 @@ export function parseRetryAfter(
   if (Number.isFinite(secs)) return Math.max(0, secs * 1000);
   const date = Date.parse(value);
   return Number.isNaN(date) ? undefined : Math.max(0, date - now);
+}
+
+const CHALLENGE_BODY =
+  /challenge-platform|cf-chl-|<title>\s*(Just a moment|Attention Required|DDoS-Guard)/i;
+
+/**
+ * True when a response is a bot check rather than content: Cloudflare marks
+ * challenges with `cf-mitigated`; otherwise sniff 403/503 HTML from a
+ * Cloudflare or DDoS-Guard server. Leaves the original body unread.
+ */
+export async function isChallenge(res: Response): Promise<boolean> {
+  if (res.headers.get('cf-mitigated') === 'challenge') return true;
+  if (res.status !== 403 && res.status !== 503) return false;
+  const server = res.headers.get('server') ?? '';
+  if (!/cloudflare|ddos-guard/i.test(server)) return false;
+  if (!/html/i.test(res.headers.get('content-type') ?? '')) return false;
+  try {
+    return CHALLENGE_BODY.test(await res.clone().text());
+  } catch {
+    return false;
+  }
 }
 
 type HeadersInit = ConstructorParameters<typeof Headers>[0];
@@ -110,13 +125,22 @@ export class HttpClient {
       let retryAfter: number | undefined;
       try {
         const res = await this.followRedirects(url, init, opts);
+        if (await isChallenge(res)) {
+          await res.body?.cancel().catch(() => {});
+          throw new ChallengeError(new URL(url).host, url);
+        }
         if (res.status !== 429 && res.status < 500) return res;
         if (attempt === retries) return res;
         retryAfter = parseRetryAfter(res.headers.get('retry-after'));
         await res.body?.cancel().catch(() => {});
         lastError = new HttpError(res.status, url);
       } catch (err) {
-        if (opts.signal?.aborted || attempt === retries) throw err;
+        if (
+          err instanceof ChallengeError ||
+          opts.signal?.aborted ||
+          attempt === retries
+        )
+          throw err;
         lastError = err;
       }
       const jitter = Math.random() * 250;

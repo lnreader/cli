@@ -11,7 +11,10 @@ import { generateCover, sniffImage } from './epub/images.js';
 import { toLanguageTag } from './epub/lang.js';
 import { sanitizeChapter } from './epub/sanitize.js';
 import { DEFAULT_CSS } from './epub/styles.js';
+import { LnreaderError } from './errors.js';
+import type { FetchBudget } from './net/budget.js';
 import type { HttpClient } from './net/client.js';
+import { hostOf } from './plugins/registry.js';
 import type { PluginRunner } from './plugins/loader.js';
 import type { ChapterCache } from './store/cache.js';
 import { writeFileAtomic } from './store/fs.js';
@@ -70,6 +73,8 @@ export type DownloadOptions = {
    * range), named `Title - New Chapters (Ch a-b)`. Ignores `split`.
    */
   delta?: string[];
+  /** Per-host cap on uncached chapter fetches (agent sessions). */
+  budget?: FetchBudget;
   /** Metadata already fetched this run (e.g. by an interactive picker); skips `parseNovel`. */
   prefetched?: Plugin.SourceNovel & { chapters: Plugin.ChapterItem[] };
   onEvent?: (event: DownloadEvent) => void;
@@ -121,8 +126,10 @@ export async function downloadNovel(
   const cached = await cache.getNovel(pluginId, novelPath);
   if (opts.offline) {
     if (!cached)
-      throw new Error(
-        'No cached copy of this novel; run once without --offline',
+      throw new LnreaderError(
+        'NOT_CACHED',
+        'No cached copy of this novel',
+        'Run once without --offline',
       );
     ({ novel, chapters } = cached);
     fromCache = true;
@@ -151,12 +158,16 @@ export async function downloadNovel(
     }
   }
   if (chapters.length === 0)
-    throw new Error(`No chapters found for ${novel.name || novelPath}`);
+    throw new LnreaderError(
+      'NO_CHAPTERS',
+      `No chapters found for ${novel.name || novelPath}`,
+    );
 
   const from = Math.max(1, opts.from ?? 1);
   const to = Math.min(chapters.length, opts.to ?? chapters.length);
   if (from > to)
-    throw new Error(
+    throw new LnreaderError(
+      'INVALID_INPUT',
       `Empty range: ${from}-${to} (novel has ${chapters.length} chapters)`,
     );
   const deltaPaths = opts.delta ? new Set(opts.delta) : undefined;
@@ -182,6 +193,20 @@ export async function downloadNovel(
   const queue = [...selected];
   const retries = opts.retries ?? 3;
 
+  // Refuse up front rather than stopping halfway when the budget can't cover it.
+  const budgetHost = hostOf(runner.plugin.site) ?? runner.id;
+  if (opts.budget && !opts.offline) {
+    let uncached = 0;
+    for (const { chapter } of selected) {
+      if (
+        (await cache.getChapter(pluginId, novelPath, chapter.path)) ===
+        undefined
+      )
+        uncached++;
+    }
+    await opts.budget.ensure(budgetHost, uncached);
+  }
+
   const fetchOne = async ({ chapter, index }: (typeof selected)[number]) => {
     const hit = await cache.getChapter(pluginId, novelPath, chapter.path);
     if (hit !== undefined) {
@@ -201,6 +226,7 @@ export async function downloadNovel(
       onEvent?.({ type: 'chapter-failed', chapter, index, error });
       return;
     }
+    opts.budget?.take(budgetHost);
     let lastError: Error | undefined;
     for (let attempt = 0; attempt <= retries; attempt++) {
       if (opts.signal?.aborted) throw opts.signal.reason;

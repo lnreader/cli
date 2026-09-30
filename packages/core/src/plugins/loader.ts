@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { LnreaderError } from '../errors.js';
 import type { HttpClient } from '../net/client.js';
 import type { CookieStore } from '../net/cookies.js';
 import type { Paths } from '../store/paths.js';
@@ -40,9 +41,10 @@ export class PluginRunner {
     if (!this.plugin.site) {
       const settings = Object.keys(this.plugin.pluginSettings ?? {}).join(', ');
       return Promise.reject(
-        new Error(
-          `Plugin ${this.id} needs its settings configured first (${settings}). ` +
-            `See \`lnreader config get --plugin ${this.id}\``,
+        new LnreaderError(
+          'NEEDS_CONFIG',
+          `Plugin ${this.id} needs its settings configured first (${settings})`,
+          `A person has to set them: \`lnreader config edit --plugin ${this.id}\``,
         ),
       );
     }

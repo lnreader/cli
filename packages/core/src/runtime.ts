@@ -1,3 +1,4 @@
+import { FetchBudget } from './net/budget.js';
 import { HttpClient, type FetchLike } from './net/client.js';
 import { CookieStore } from './net/cookies.js';
 import { PluginLoader } from './plugins/loader.js';
@@ -25,6 +26,12 @@ export type Runtime = {
   registry: PluginRegistry;
   loader: PluginLoader;
   cache: ChapterCache;
+  /**
+   * Per-host cap on uncached chapter fetches for this session. Agent-facing
+   * paths (MCP tools, `lnreader read`) pass it to core; raising
+   * `sessionFetchBudget` in the config takes effect without a restart.
+   */
+  budget: FetchBudget;
   /** The followed-novels library, opened on first use. */
   library(): Library;
   /** Persist cookie jars and close the library. */
@@ -71,6 +78,10 @@ export async function createRuntime(
     registry,
     loader,
     cache: new ChapterCache(paths),
+    budget: new FetchBudget({
+      limit: config.sessionFetchBudget,
+      refreshLimit: async () => (await loadConfig(paths)).sessionFetchBudget,
+    }),
     library: () => (library ??= Library.open(paths)),
     close: async () => {
       library?.close();
