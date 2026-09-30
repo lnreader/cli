@@ -1,0 +1,45 @@
+{
+  "name": "@lnreader-cli/core",
+  "version": "0.1.0",
+  "description": "Run LNReader plugins in Node and build EPUBs from them",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^2.4.0",
+    "cheerio": "^1.2.0",
+    "dayjs": "^1.11.23",
+    "dom-serializer": "^3.1.1",
+    "domhandler": "^6.0.1",
+    "env-paths": "^4.0.0",
+    "htmlparser2": "^9.1.0",
+    "jszip": "^3.10.2",
+    "protobufjs": "^7.6.6",
+    "sanitize-html": "^2.17.7",
+    "tough-cookie": "^6.0.2",
+    "urlencode": "^2.0.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/sanitize-html": "^2.16.2",
+    "@types/urlencode": "^2.0.0"
+  }
+}

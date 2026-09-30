@@ -1,0 +1,27 @@
+{
+  "name": "lnreader-cli",
+  "version": "0.1.0",
+  "description": "Search LNReader plugin sources and download novels as EPUB",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "lnreader": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx --conditions=source src/index.ts"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.8.1",
+    "@lnreader-cli/core": "workspace:*",
+    "commander": "^15.0.0",
+    "picocolors": "^1.1.1"
+  }
+}

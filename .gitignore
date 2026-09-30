@@ -33,3 +33,9 @@ go.work
 *.swo
 
 IMPROVEMENT_IDEAS.md
+# Node
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+*.epub
