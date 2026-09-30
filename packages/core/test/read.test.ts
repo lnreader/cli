@@ -12,7 +12,7 @@ import {
   PluginError,
   renderChapter,
   sliceContent,
-} from '@lnreader-cli/core';
+} from '../src/index.js';
 
 const base = 'https://novels.test/novel/1/ch-2';
 
