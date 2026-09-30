@@ -1,124 +1,25 @@
 import { execFile } from 'node:child_process';
-import { mkdtemp, readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
-import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
-import { tmpdir } from 'node:os';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { OUTPUT_SCHEMAS } from '../src/schemas.js';
+import { startSite, type Site } from './site.js';
 
 const run = promisify(execFile);
 const CLI = fileURLToPath(new URL('../src/index.ts', import.meta.url));
-const FIXTURE = new URL(
-  '../../core/test/fixtures/fixture-plugin.js',
-  import.meta.url,
-);
-const PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-  'base64',
-);
 
-let server: Server;
+let site: Site;
 let base: string;
 let home: string;
-/** Chapters the fake site currently lists. */
-let chapterCount = 3;
 
-/** Serves a plugin repo, the fixture plugin (pointed at this server) and a novel site. */
 beforeAll(async () => {
-  const code = await readFile(FIXTURE, 'utf8');
-  const page = (body: string) =>
-    `<!doctype html><html><body>${body}</body></html>`;
-  server = createServer((req, res) => {
-    const url = new URL(req.url!, base);
-    const send = (
-      status: number,
-      body: string | Buffer,
-      type = 'text/html',
-    ) => {
-      res.writeHead(status, { 'content-type': type });
-      res.end(body);
-    };
-    if (url.pathname === '/plugins.min.json') {
-      return send(
-        200,
-        JSON.stringify([
-          {
-            id: 'fixture',
-            name: 'Fixture',
-            site: `${base}/`,
-            lang: 'English',
-            version: '1.0.0',
-            url: `${base}/fixture.js`,
-          },
-          {
-            id: 'banned',
-            name: 'Banned',
-            site: 'https://banned.test/',
-            lang: 'English',
-            version: '1.0.0',
-            url: `${base}/x.js`,
-          },
-        ]),
-        'application/json',
-      );
-    }
-    if (url.pathname === '/blacklist.json') {
-      return send(
-        200,
-        JSON.stringify([{ name: 'Banned', site: 'https://banned.test/' }]),
-        'application/json',
-      );
-    }
-    if (url.pathname === '/fixture.js')
-      return send(
-        200,
-        code.replaceAll('https://novels.test/', `${base}/`),
-        'text/javascript',
-      );
-    if (url.pathname === '/search') {
-      return send(
-        200,
-        page(
-          `<div class="result"><a href="/novel/abc">Found ${url.searchParams.get('q')}</a></div>`,
-        ),
-      );
-    }
-    if (url.pathname === '/novel/abc') {
-      return send(
-        200,
-        page(`<h1>CLI Novel</h1><span class="author">A. Author</span>
-        <img class="cover" src="${base}/cover.png"><p class="summary">Summary.</p>
-        <div class="chapters">${Array.from(
-          { length: chapterCount },
-          (_, i) => i + 1,
-        )
-          .map(i => `<a href="/novel/abc/${i}">Chapter ${i}</a>`)
-          .join('')}</div>`),
-      );
-    }
-    const ch = url.pathname.match(/^\/novel\/abc\/(\d+)$/);
-    if (ch)
-      return send(200, page(`<div id="content"><p>Body ${ch[1]}</p></div>`));
-    if (url.pathname === '/cover.png') return send(200, PNG, 'image/png');
-    send(404, 'not found');
-  });
-  await new Promise<void>(r => server.listen(0, '127.0.0.1', r));
-  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  home = await mkdtemp(join(tmpdir(), 'lnreader-cli-'));
-  await mkdir(join(home, 'config'), { recursive: true });
-  await writeFile(
-    join(home, 'config', 'config.json'),
-    JSON.stringify({
-      repos: [`${base}/plugins.min.json`],
-      blacklistUrl: `${base}/blacklist.json`,
-      minGapMs: 0,
-    }),
-  );
+  site = await startSite();
+  ({ base, home } = site);
 });
 
-afterAll(() => server?.close());
+afterAll(() => site?.close());
 
 const lnreader = (...args: string[]) =>
   run(
@@ -170,7 +71,7 @@ describe('lnreader', () => {
 
   it('fails with a usage error when the novel is missing and stdin is not a TTY', async () => {
     await expect(lnreader('download')).rejects.toMatchObject({
-      code: 1,
+      code: 2,
       stderr: expect.stringContaining('Missing <novel>'),
     });
   });
@@ -189,7 +90,7 @@ describe('lnreader', () => {
 
   it('follows, lists, updates and unfollows a novel', async () => {
     const out = join(home, 'library');
-    chapterCount = 3;
+    site.chapterCount = 3;
     const follow = await lnreader('follow', 'fixture:novel/abc', '--out', out);
     expect(follow.stderr).toContain('Following CLI Novel');
     expect(await readdir(out)).toEqual(['CLI Novel.epub']);
@@ -202,7 +103,7 @@ describe('lnreader', () => {
     const upToDate = await lnreader('update', '--all');
     expect(upToDate.stderr).toContain('up to date (3 chapters)');
 
-    chapterCount = 5;
+    site.chapterCount = 5;
     const delta = await lnreader('update', '1', '--delta', '--json');
     expect(JSON.parse(delta.stdout)).toMatchObject([
       { status: 'updated', added: [4, 5], failed: [] },
@@ -333,4 +234,318 @@ describe('lnreader', () => {
       stderr: expect.stringContaining('Unsupported format'),
     });
   });
+});
+
+const fails = async (...args: string[]) => {
+  try {
+    await lnreader(...args);
+  } catch (e) {
+    return e as { code: number; stdout: string; stderr: string };
+  }
+  throw new Error(`expected lnreader ${args.join(' ')} to fail`);
+};
+
+describe('lnreader for agents', () => {
+  it('reads a chapter as Markdown, text and numbered paragraphs', async () => {
+    const md = await lnreader('read', 'fixture:novel/abc', '2');
+    expect(md.stdout).toBe(
+      '# Chapter 2\n\nBody 2 with _style_.\n\nSecond paragraph of chapter 2.\n',
+    );
+    const text = await lnreader(
+      'read',
+      'fixture:novel/abc',
+      'ch:2',
+      '--format',
+      'text',
+    );
+    expect(text.stdout).toBe(
+      'Chapter 2\n\nBody 2 with style.\n\nSecond paragraph of chapter 2.\n',
+    );
+    const numbered = await lnreader(
+      'read',
+      `${base}/novel/abc`,
+      'novel/abc/2',
+      '--format',
+      'numbered',
+    );
+    expect(numbered.stdout).toBe(
+      '# Chapter 2\n\n[1] Body 2 with style.\n[2] Second paragraph of chapter 2.\n',
+    );
+  }, 30_000);
+
+  it('reads chunks with --offset and --max-chars as JSON', async () => {
+    const first = JSON.parse(
+      (
+        await lnreader(
+          'read',
+          'fixture:novel/abc',
+          '1',
+          '--max-chars',
+          '30',
+          '--json',
+        )
+      ).stdout,
+    );
+    OUTPUT_SCHEMAS.read.parse(first);
+    expect(first).toMatchObject({
+      novel: { plugin: 'fixture', path: 'novel/abc', name: 'CLI Novel' },
+      chapter: { index: 1, name: 'Chapter 1', path: 'novel/abc/1' },
+      totalChapters: expect.any(Number),
+      format: 'md',
+      offset: 0,
+      content: '# Chapter 1\n\nBody 1 with',
+    });
+    const rest = JSON.parse(
+      (
+        await lnreader(
+          'read',
+          'fixture:novel/abc',
+          '1',
+          '--offset',
+          String(first.nextOffset),
+          '--json',
+        )
+      ).stdout,
+    );
+    expect(rest.cached).toBe(true);
+    expect(rest.nextOffset).toBeUndefined();
+    expect(first.content + ' ' + rest.content).toBe(
+      '# Chapter 1\n\nBody 1 with _style_.\n\nSecond paragraph of chapter 1.',
+    );
+  }, 30_000);
+
+  it('streams a range of chapters separated by headings', async () => {
+    const { stdout } = await lnreader(
+      'read',
+      'fixture:novel/abc',
+      '--from',
+      '1',
+      '--to',
+      '3',
+      '--format',
+      'text',
+    );
+    expect(stdout.match(/^Chapter \d$/gm)).toEqual([
+      'Chapter 1',
+      'Chapter 2',
+      'Chapter 3',
+    ]);
+    const json = JSON.parse(
+      (await lnreader('read', 'fixture:novel/abc', '--from', '2', '--json'))
+        .stdout,
+    );
+    OUTPUT_SCHEMAS.read.parse(json);
+    expect(json.chapters.map((c: { index: number }) => c.index)).toEqual(
+      Array.from({ length: json.totalChapters - 1 }, (_, i) => i + 2),
+    );
+  }, 30_000);
+
+  it('prints structured errors with --json', async () => {
+    const missing = await fails('read', 'fixture:novel/abc', '99', '--json');
+    expect(missing.code).toBe(1);
+    expect(OUTPUT_SCHEMAS.error.parse(JSON.parse(missing.stdout))).toEqual({
+      error: {
+        code: 'CHAPTER_NOT_FOUND',
+        message: expect.stringContaining('No chapter #99'),
+        hint: expect.any(String),
+      },
+    });
+
+    const usage = await fails('read', '--json');
+    expect(usage.code).toBe(2);
+    expect(JSON.parse(usage.stdout).error.code).toBe('USAGE');
+
+    const badFlag = await fails('search', 'x', '--nope', '--json');
+    expect(badFlag.code).toBe(2);
+    expect(JSON.parse(badFlag.stdout).error).toMatchObject({
+      code: 'USAGE',
+      message: expect.stringContaining('--nope'),
+    });
+
+    const unknown = await fails('info', 'nope:x', '--json');
+    expect(JSON.parse(unknown.stdout).error.code).toBe('PLUGIN_NOT_FOUND');
+  }, 30_000);
+
+  it('reports a Cloudflare challenge as NEEDS_AUTH', async () => {
+    const { stdout, stderr } = await fails(
+      'info',
+      'fixture:novel/cf',
+      '--json',
+    );
+    expect(JSON.parse(stdout).error).toMatchObject({
+      code: 'NEEDS_AUTH',
+      hint: expect.stringContaining('lnreader auth fixture'),
+    });
+    expect(stderr).toContain('lnreader auth fixture');
+  }, 30_000);
+
+  it('stops a range at the session fetch budget; cached reads are free', async () => {
+    const small = await startSite({ sessionFetchBudget: 2 });
+    const read = (...args: string[]) => [
+      '--home',
+      small.home,
+      'read',
+      'fixture:novel/abc',
+      ...args,
+      '--json',
+    ];
+    try {
+      const over = await fails(...read('--from', '1'));
+      expect(JSON.parse(over.stdout).error).toMatchObject({
+        code: 'BUDGET_EXCEEDED',
+        hint: expect.stringContaining('sessionFetchBudget'),
+      });
+      expect(small.hits.get('/novel/abc/1')).toBeUndefined();
+
+      await lnreader(...read('--to', '2'));
+      // Chapters 1 and 2 are cached now, so only chapter 3 counts.
+      const all = JSON.parse((await lnreader(...read('--from', '1'))).stdout);
+      expect(all.chapters.map((c: { cached: boolean }) => c.cached)).toEqual([
+        true,
+        true,
+        false,
+      ]);
+    } finally {
+      await small.close();
+    }
+  }, 30_000);
+
+  it('prints JSON Schemas for command output', async () => {
+    const names = JSON.parse((await lnreader('schema', '--json')).stdout);
+    expect(names).toEqual(expect.arrayContaining(['read', 'search', 'error']));
+    const schema = JSON.parse((await lnreader('schema', 'read')).stdout);
+    expect(schema.anyOf).toHaveLength(2);
+    const plugins = JSON.parse(
+      (await lnreader('schema', 'plugins', 'list')).stdout,
+    );
+    expect(plugins.type).toBe('array');
+    expect((await fails('schema', 'nope')).stderr).toContain(
+      'No schema for "nope"',
+    );
+  }, 30_000);
+
+  it('matches the published schemas', async () => {
+    const json = async (...args: string[]) =>
+      JSON.parse((await lnreader(...args, '--json')).stdout);
+    OUTPUT_SCHEMAS['plugins list'].parse(await json('plugins', 'list'));
+    OUTPUT_SCHEMAS['plugins repo list'].parse(
+      await json('plugins', 'repo', 'list'),
+    );
+    OUTPUT_SCHEMAS.search.parse(await json('search', 'x', '-p', 'fixture'));
+    OUTPUT_SCHEMAS.popular.parse(await json('popular', '-p', 'fixture'));
+    OUTPUT_SCHEMAS.info.parse(
+      await json('info', 'fixture:novel/abc', '--chapters'),
+    );
+    OUTPUT_SCHEMAS['config get'].parse(await json('config', 'get'));
+    OUTPUT_SCHEMAS.download.parse(
+      await json(
+        'download',
+        'fixture:novel/abc',
+        '--out',
+        join(home, 'schema'),
+      ),
+    );
+    const follow = await json(
+      'follow',
+      'fixture:novel/abc',
+      '--out',
+      join(home, 'schema'),
+    );
+    OUTPUT_SCHEMAS.follow.parse(follow);
+    expect(follow.update.status).toBe('updated');
+    OUTPUT_SCHEMAS.list.parse(await json('list'));
+    OUTPUT_SCHEMAS.update.parse(await json('update', '--all'));
+    OUTPUT_SCHEMAS.unfollow.parse(await json('unfollow', 'cli novel'));
+    const test = await json('plugins', 'test', 'fixture');
+    OUTPUT_SCHEMAS['plugins test'].parse(test);
+    expect(test).toMatchObject({ plugin: 'fixture', ok: true });
+    expect(test.steps.map((s: { step: string }) => s.step)).toEqual([
+      'load',
+      'popular',
+      'search',
+      'novel',
+      'chapter',
+    ]);
+  }, 90_000);
+
+  it('keeps stderr empty with --quiet', async () => {
+    const { stderr } = await lnreader(
+      '--quiet',
+      'download',
+      'fixture:novel/abc',
+      '--out',
+      join(home, 'quiet'),
+    );
+    expect(stderr).toBe('');
+    expect(await readdir(join(home, 'quiet'))).toEqual(['CLI Novel.epub']);
+  }, 30_000);
+
+  it('writes MCP client config without touching other keys', async () => {
+    const file = join(home, 'client.json');
+    await writeFile(
+      file,
+      JSON.stringify({
+        theme: 'dark',
+        mcpServers: { other: { command: 'x' } },
+      }),
+    );
+    const added = JSON.parse(
+      (
+        await lnreader(
+          'mcp',
+          'install',
+          '--client',
+          'cursor',
+          '--config',
+          file,
+          '--json',
+        )
+      ).stdout,
+    );
+    expect(added.status).toBe('added');
+    expect(JSON.parse(await readFile(file, 'utf8'))).toEqual({
+      theme: 'dark',
+      mcpServers: {
+        other: { command: 'x' },
+        lnreader: {
+          command: 'npx',
+          args: ['-y', 'lnreader-cli', 'mcp'],
+          env: { LNREADER_HOME: home },
+        },
+      },
+    });
+    const again = await lnreader(
+      'mcp',
+      'install',
+      '--client',
+      'cursor',
+      '--config',
+      file,
+    );
+    expect(again.stderr).toContain('already set up');
+
+    await writeFile(file, '{ not json');
+    expect(
+      (await fails('mcp', 'install', '--client', 'cursor', '--config', file))
+        .stderr,
+    ).toContain('not valid JSON');
+    expect(
+      (await fails('mcp', 'install', '--client', 'vim', '--config', file))
+        .stderr,
+    ).toContain('Unknown client');
+  }, 30_000);
+
+  it('installs the agent skill', async () => {
+    const dir = join(home, 'skills');
+    const result = JSON.parse(
+      (await lnreader('skill', 'install', '--dir', dir, '--json')).stdout,
+    );
+    expect(result).toEqual({
+      file: join(dir, 'lnreader', 'SKILL.md'),
+      status: 'installed',
+    });
+    const skill = await readFile(result.file, 'utf8');
+    expect(skill).toMatch(/^---\nname: lnreader\n/);
+    expect(skill).toContain('NEEDS_AUTH');
+  }, 30_000);
 });

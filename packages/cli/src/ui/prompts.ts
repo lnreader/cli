@@ -1,18 +1,26 @@
 import * as p from '@clack/prompts';
+import { LnreaderError } from '@lnreader-cli/core';
 
-export class MissingArgumentError extends Error {}
+/** A required argument is missing and there is nobody to ask; exits 2. */
+export class MissingArgumentError extends LnreaderError {
+  constructor(message: string) {
+    super('USAGE', message, 'Run with --help for usage');
+  }
+}
 
 /**
  * Prompts only when a person is at the keyboard: both stdin and stdout are
- * TTYs, not in CI, and neither `--json` nor `--no-interactive` was passed.
+ * TTYs, not in CI, and none of `--json`, `--no-input` or `--no-interactive`
+ * was passed.
  */
 export function isInteractive(
-  opts: { interactive?: boolean; json?: boolean } = {},
+  opts: { interactive?: boolean; input?: boolean; json?: boolean } = {},
 ): boolean {
   const ci =
     process.env.CI && process.env.CI !== 'false' && process.env.CI !== '0';
   return (
     opts.interactive !== false &&
+    opts.input !== false &&
     !opts.json &&
     !ci &&
     !!process.stdin.isTTY &&
@@ -30,7 +38,7 @@ export async function requireText(
   value: string | undefined,
   message: string,
   hint: string,
-  opts: { interactive?: boolean; json?: boolean } = {},
+  opts: { interactive?: boolean; input?: boolean; json?: boolean } = {},
 ) {
   if (value) return value;
   if (!isInteractive(opts)) throw new MissingArgumentError(`Missing ${hint}`);

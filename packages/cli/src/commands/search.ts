@@ -36,7 +36,12 @@ const PARALLEL_PLUGINS = 8;
 export async function searchPlugins(
   rt: Runtime,
   query: string,
-  opts: SearchOptions & { refresh?: boolean; quiet?: boolean },
+  opts: SearchOptions & {
+    refresh?: boolean;
+    quiet?: boolean;
+    /** Remember results for `info <n>`; off for agents. Default true. */
+    save?: boolean;
+  },
 ): Promise<{ results: PluginResults[]; items: LastSearchItem[] }> {
   let entries = await rt.registry.list(opts.refresh);
   if (opts.plugin?.length) {
@@ -85,7 +90,7 @@ export async function searchPlugins(
   const order = new Map(entries.map((e, i) => [e.id, i]));
   results.sort((a, b) => order.get(a.entry.id)! - order.get(b.entry.id)!);
   const items = results.flatMap(r => r.items);
-  await saveLastSearch(rt, items);
+  if (opts.save !== false) await saveLastSearch(rt, items);
   return { results, items };
 }
 

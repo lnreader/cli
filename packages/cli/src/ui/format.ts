@@ -4,11 +4,28 @@ import pc from 'picocolors';
 export const out = (line = ''): void => void process.stdout.write(line + '\n');
 export const err = (line = ''): void => void process.stderr.write(line + '\n');
 
+let quiet = false;
+
+/** `--quiet`: drop progress and info lines on stderr; errors still print. */
+export function setQuiet(value: boolean): void {
+  quiet = value;
+}
+
+export const isQuiet = (): boolean => quiet;
+
+const unlessQuiet =
+  (line: (m: string) => string) =>
+  (m: string): void => {
+    if (!quiet) err(line(m));
+  };
+
 export const log = {
-  info: (m: string) => err(`${pc.cyan('•')} ${m}`),
-  success: (m: string) => err(`${pc.green('✔')} ${m}`),
-  warn: (m: string) => err(`${pc.yellow('!')} ${m}`),
+  info: unlessQuiet(m => `${pc.cyan('•')} ${m}`),
+  success: unlessQuiet(m => `${pc.green('✔')} ${m}`),
+  warn: unlessQuiet(m => `${pc.yellow('!')} ${m}`),
   error: (m: string) => err(`${pc.red('✖')} ${m}`),
+  /** The next step after an error; shown even with `--quiet`. */
+  hint: (m: string) => err(`  ${pc.dim(m)}`),
 };
 
 export function printJson(value: unknown): void {
