@@ -1,6 +1,6 @@
 {
   "name": "@lnreader/cli-browser",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Optional add-on for @lnreader/cli: solve Cloudflare challenges and log in using your installed Chrome or Edge",
   "license": "MIT",
   "repository": {
