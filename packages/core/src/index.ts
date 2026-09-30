@@ -52,6 +52,17 @@ export {
   type Config,
 } from './store/config.js';
 export { ChapterCache, type CachedNovel } from './store/cache.js';
+export {
+  Library,
+  type LibraryNovel,
+  type LibraryOutput,
+  type FollowOptions,
+} from './store/library.js';
+export {
+  updateNovel,
+  type UpdateOptions,
+  type UpdateResult,
+} from './update.js';
 export { readJson, writeJson, writeFileAtomic } from './store/fs.js';
 
 export {

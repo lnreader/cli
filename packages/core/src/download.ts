@@ -65,6 +65,11 @@ export type DownloadOptions = {
   retries?: number;
   /** Use only cached data: no metadata refresh, no chapter fetches. */
   offline?: boolean;
+  /**
+   * Build a "new chapters" book from only these chapter paths (within the
+   * range), named `Title - New Chapters (Ch a-b)`. Ignores `split`.
+   */
+  delta?: string[];
   /** Metadata already fetched this run (e.g. by an interactive picker); skips `parseNovel`. */
   prefetched?: Plugin.SourceNovel & { chapters: Plugin.ChapterItem[] };
   onEvent?: (event: DownloadEvent) => void;
@@ -73,6 +78,9 @@ export type DownloadOptions = {
 };
 
 export type DownloadResult = {
+  novel: Plugin.SourceNovel;
+  /** The novel's full chapter list as fetched (or cached) this run. */
+  allChapters: Plugin.ChapterItem[];
   files: string[];
   failed: Array<{ index: number; chapter: Plugin.ChapterItem; error: string }>;
   chapters: number;
@@ -151,9 +159,14 @@ export async function downloadNovel(
     throw new Error(
       `Empty range: ${from}-${to} (novel has ${chapters.length} chapters)`,
     );
+  const deltaPaths = opts.delta ? new Set(opts.delta) : undefined;
   const selected = chapters
     .slice(from - 1, to)
-    .map((chapter, i) => ({ chapter, index: from + i }));
+    .map((chapter, i) => ({ chapter, index: from + i }))
+    .filter(({ chapter }) => !deltaPaths || deltaPaths.has(chapter.path));
+  if (selected.length === 0) {
+    return { novel, allChapters: chapters, files: [], failed: [], chapters: 0 };
+  }
   onEvent?.({
     type: 'novel',
     novel,
@@ -235,7 +248,7 @@ export async function downloadNovel(
   // 3. Build volumes.
   const css = opts.cssFile ? await readFile(opts.cssFile, 'utf8') : DEFAULT_CSS;
   const title = novel.name?.trim() || 'Untitled';
-  const split = opts.split && opts.split > 0 ? opts.split : 0;
+  const split = !deltaPaths && opts.split && opts.split > 0 ? opts.split : 0;
   const volumes = new Map<number, typeof selected>();
   for (const item of selected) {
     if (!bodies.has(item.index)) continue;
@@ -252,9 +265,11 @@ export async function downloadNovel(
   for (const [vol, items] of volumes) {
     const first = items[0]!.index;
     const last = items[items.length - 1]!.index;
-    const volTitle = vol
-      ? `${title} - Vol ${pad(vol)} (Ch ${first}-${last})`
-      : title;
+    const volTitle = deltaPaths
+      ? `${title} - New Chapters (Ch ${first}-${last})`
+      : vol
+        ? `${title} - Vol ${pad(vol)} (Ch ${first}-${last})`
+        : title;
     const file = outputPath(opts.out, volTitle, !!split);
     onEvent?.({ type: 'building', file, chapters: items.length });
 
@@ -280,7 +295,9 @@ export async function downloadNovel(
     const authors = splitPeople(novel.author);
     const bytes = await buildEpub({
       metadata: {
-        identifier: stableUuid(`lnreader:${pluginId}:${novelPath}:${vol}`),
+        identifier: stableUuid(
+          `lnreader:${pluginId}:${novelPath}:${deltaPaths ? `delta:${first}-${last}` : vol}`,
+        ),
         title: volTitle,
         lang: toLanguageTag(runner.entry.lang),
         authors,
@@ -325,7 +342,13 @@ export async function downloadNovel(
     onEvent?.({ type: 'written', file, bytes: bytes.length });
   }
 
-  return { files, failed, chapters: selected.length - failed.length };
+  return {
+    novel,
+    allChapters: chapters,
+    files,
+    failed,
+    chapters: selected.length - failed.length,
+  };
 }
 
 function splitPeople(s: string | undefined): string[] {

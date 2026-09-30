@@ -4,6 +4,7 @@ import { PluginLoader } from './plugins/loader.js';
 import { PluginRegistry } from './plugins/registry.js';
 import type { Logger } from './plugins/sandbox.js';
 import { ChapterCache } from './store/cache.js';
+import { Library } from './store/library.js';
 import { loadConfig, type Config } from './store/config.js';
 import { resolvePaths, type Paths } from './store/paths.js';
 
@@ -24,7 +25,9 @@ export type Runtime = {
   registry: PluginRegistry;
   loader: PluginLoader;
   cache: ChapterCache;
-  /** Persist cookie jars. */
+  /** The followed-novels library, opened on first use. */
+  library(): Library;
+  /** Persist cookie jars and close the library. */
   close(): Promise<void>;
 };
 
@@ -58,6 +61,7 @@ export async function createRuntime(
     timeoutMs: config.pluginTimeoutMs,
     logger: options.logger,
   });
+  let library: Library | undefined;
   return {
     paths,
     config,
@@ -66,7 +70,12 @@ export async function createRuntime(
     registry,
     loader,
     cache: new ChapterCache(paths),
-    close: () => cookies.saveAll(),
+    library: () => (library ??= Library.open(paths)),
+    close: async () => {
+      library?.close();
+      library = undefined;
+      await cookies.saveAll();
+    },
   };
 }
 

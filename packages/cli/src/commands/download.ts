@@ -1,5 +1,6 @@
 import {
   downloadNovel,
+  type DownloadEvent,
   type PluginRunner,
   type Runtime,
 } from '@lnreader-cli/core';
@@ -34,6 +35,40 @@ const positiveInt = (name: string, v?: string) => {
     throw new Error(`--${name} must be a positive integer`);
   return n;
 };
+
+/** Terminal output for download events. */
+export function progressLogger(progress: Progress) {
+  return (e: DownloadEvent) => {
+    switch (e.type) {
+      case 'page':
+        progress.update(e.page, e.total, 'reading chapter list');
+        break;
+      case 'novel':
+        progress.clear();
+        log.info(
+          `${pc.bold(e.novel.name)}: ${e.selected} of ${e.total} chapters` +
+            (e.fromCache ? pc.yellow(' (metadata from cache)') : ''),
+        );
+        break;
+      case 'chapter':
+        progress.update(e.done, e.total, e.chapter.name);
+        break;
+      case 'chapter-failed':
+        progress.clear();
+        log.warn(
+          `Chapter ${e.index} "${e.chapter.name}" failed: ${e.error.message}`,
+        );
+        break;
+      case 'building':
+        progress.clear();
+        log.info(`Building ${e.file} (${e.chapters} chapters)`);
+        break;
+      case 'written':
+        log.success(`Wrote ${e.file} (${formatBytes(e.bytes)})`);
+        break;
+    }
+  };
+}
 
 /**
  * Download with progress output, Ctrl-C handling and a failure summary.
@@ -81,37 +116,7 @@ export async function runDownload(
       offline: flags.offline,
       prefetched,
       signal: controller.signal,
-      onEvent: e => {
-        if (flags.json) return;
-        switch (e.type) {
-          case 'page':
-            progress.update(e.page, e.total, 'reading chapter list');
-            break;
-          case 'novel':
-            progress.clear();
-            log.info(
-              `${pc.bold(e.novel.name)}: ${e.selected} of ${e.total} chapters` +
-                (e.fromCache ? pc.yellow(' (metadata from cache)') : ''),
-            );
-            break;
-          case 'chapter':
-            progress.update(e.done, e.total, e.chapter.name);
-            break;
-          case 'chapter-failed':
-            progress.clear();
-            log.warn(
-              `Chapter ${e.index} "${e.chapter.name}" failed: ${e.error.message}`,
-            );
-            break;
-          case 'building':
-            progress.clear();
-            log.info(`Building ${e.file} (${e.chapters} chapters)`);
-            break;
-          case 'written':
-            log.success(`Wrote ${e.file} (${formatBytes(e.bytes)})`);
-            break;
-        }
-      },
+      onEvent: flags.json ? undefined : progressLogger(progress),
     });
     progress.clear();
     if (flags.json) printJson(result);

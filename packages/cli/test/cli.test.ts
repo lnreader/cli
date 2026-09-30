@@ -22,6 +22,8 @@ const PNG = Buffer.from(
 let server: Server;
 let base: string;
 let home: string;
+/** Chapters the fake site currently lists. */
+let chapterCount = 3;
 
 /** Serves a plugin repo, the fixture plugin (pointed at this server) and a novel site. */
 beforeAll(async () => {
@@ -88,10 +90,15 @@ beforeAll(async () => {
         200,
         page(`<h1>CLI Novel</h1><span class="author">A. Author</span>
         <img class="cover" src="${base}/cover.png"><p class="summary">Summary.</p>
-        <div class="chapters">${[1, 2, 3].map(i => `<a href="/novel/abc/${i}">Chapter ${i}</a>`).join('')}</div>`),
+        <div class="chapters">${Array.from(
+          { length: chapterCount },
+          (_, i) => i + 1,
+        )
+          .map(i => `<a href="/novel/abc/${i}">Chapter ${i}</a>`)
+          .join('')}</div>`),
       );
     }
-    const ch = url.pathname.match(/^\/novel\/abc\/(\d)$/);
+    const ch = url.pathname.match(/^\/novel\/abc\/(\d+)$/);
     if (ch)
       return send(200, page(`<div id="content"><p>Body ${ch[1]}</p></div>`));
     if (url.pathname === '/cover.png') return send(200, PNG, 'image/png');
@@ -179,6 +186,39 @@ describe('lnreader', () => {
     expect(stdout).toMatch(/1\s+Found x/);
     expect(stderr).toContain('lnreader download <n>');
   });
+
+  it('follows, lists, updates and unfollows a novel', async () => {
+    const out = join(home, 'library');
+    chapterCount = 3;
+    const follow = await lnreader('follow', 'fixture:novel/abc', '--out', out);
+    expect(follow.stderr).toContain('Following CLI Novel');
+    expect(await readdir(out)).toEqual(['CLI Novel.epub']);
+
+    const list = JSON.parse((await lnreader('list', '--json')).stdout);
+    expect(list).toMatchObject([
+      { name: 'CLI Novel', knownCount: 3, options: { outDir: out } },
+    ]);
+
+    const upToDate = await lnreader('update', '--all');
+    expect(upToDate.stderr).toContain('up to date (3 chapters)');
+
+    chapterCount = 5;
+    const delta = await lnreader('update', '1', '--delta', '--json');
+    expect(JSON.parse(delta.stdout)).toMatchObject([
+      { status: 'updated', added: [4, 5], failed: [] },
+    ]);
+    expect((await readdir(out)).sort()).toEqual([
+      'CLI Novel - New Chapters (Ch 4-5).epub',
+      'CLI Novel.epub',
+    ]);
+
+    await expect(lnreader('update')).rejects.toMatchObject({
+      stderr: expect.stringContaining('pass --all'),
+    });
+
+    await lnreader('unfollow', 'cli novel');
+    expect(JSON.parse((await lnreader('list', '--json')).stdout)).toEqual([]);
+  }, 60_000);
 
   it('refuses unknown formats', async () => {
     await expect(
