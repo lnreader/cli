@@ -1,6 +1,6 @@
 {
   "name": "@lnreader/plugin-runtime",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Run LNReader plugins in Node and build EPUBs from them",
   "license": "MIT",
   "repository": {
