@@ -10,9 +10,24 @@ export {
 export {
   HttpClient,
   HttpError,
+  isChallenge,
   parseRetryAfter,
   type FetchLike,
 } from './net/client.js';
+export {
+  FetchBudget,
+  DEFAULT_SESSION_FETCH_BUDGET,
+  type FetchBudgetOptions,
+} from './net/budget.js';
+export {
+  LnreaderError,
+  ChallengeError,
+  BudgetExceededError,
+  ERROR_CODES,
+  errorInfo,
+  type ErrorCode,
+  type ErrorInfo,
+} from './errors.js';
 export { HostLimiter } from './net/limiter.js';
 export { CookieStore, type SimpleCookie } from './net/cookies.js';
 
@@ -62,9 +77,35 @@ export {
 } from './store/library.js';
 export {
   updateNovel,
+  checkNovel,
+  type CheckResult,
   type UpdateOptions,
   type UpdateResult,
 } from './update.js';
+export {
+  loadNovel,
+  findChapter,
+  locateChapter,
+  readChapter,
+  type LoadedNovel,
+  type ChapterRef,
+  type FoundChapter,
+  type ReadChapterResult,
+} from './read/chapter.js';
+export {
+  renderChapter,
+  sliceContent,
+  READ_FORMATS,
+  MAX_CHARS_CAP,
+  DEFAULT_MAX_CHARS,
+  type ReadFormat,
+  type Slice,
+} from './read/format.js';
+export {
+  testPlugin,
+  type PluginTestResult,
+  type PluginTestStep,
+} from './plugins/test.js';
 export { readJson, writeJson, writeFileAtomic } from './store/fs.js';
 
 export {

@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { z } from 'zod';
+import { DEFAULT_SESSION_FETCH_BUDGET } from '../net/budget.js';
 import { readJson, writeJson } from './fs.js';
 import type { Paths } from './paths.js';
 
@@ -21,6 +22,15 @@ export const ConfigSchema = z.object({
   concurrency: z.number().int().min(1).max(16).default(2),
   /** Minimum gap between request starts on one host, in ms. */
   minGapMs: z.number().int().min(0).default(500),
+  /**
+   * Uncached chapter fetches an MCP session or `lnreader read` may make per
+   * host before stopping with BUDGET_EXCEEDED. Cached reads are free.
+   */
+  sessionFetchBudget: z
+    .number()
+    .int()
+    .min(1)
+    .default(DEFAULT_SESSION_FETCH_BUDGET),
   /** Per-call timeout for async plugin methods, in ms. */
   pluginTimeoutMs: z.number().int().min(1000).default(60_000),
   /** Default output directory for EPUBs; cwd when unset. */

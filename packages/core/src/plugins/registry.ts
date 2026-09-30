@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { HttpClient } from '../net/client.js';
+import { LnreaderError } from '../errors.js';
 import { readJson, writeFileAtomic, writeJson } from '../store/fs.js';
 import { BLACKLIST_URL } from '../store/config.js';
 import type { Paths } from '../store/paths.js';
@@ -167,9 +168,16 @@ export class PluginRegistry {
     if (entry) return entry;
     const blacklist = await this.getBlacklist();
     if (blacklist.some(b => b.name.toLowerCase() === id.toLowerCase())) {
-      throw new Error(`Plugin ${id} is blacklisted and cannot be used`);
+      throw new LnreaderError(
+        'PLUGIN_NOT_FOUND',
+        `Plugin ${id} is blacklisted and cannot be used`,
+      );
     }
-    throw new Error(`Unknown plugin: ${id}`);
+    throw new LnreaderError(
+      'PLUGIN_NOT_FOUND',
+      `Unknown plugin: ${id}`,
+      'List plugin ids with `lnreader plugins list`',
+    );
   }
 
   /** Find the plugin whose `site` host matches the URL, and the path relative to it. */
@@ -180,7 +188,10 @@ export class PluginRegistry {
     if (!host) return undefined;
     const blacklist = await this.getBlacklist();
     if (isBlacklisted({ site: url, name: '' }, blacklist)) {
-      throw new Error(`${host} is blacklisted and cannot be used`);
+      throw new LnreaderError(
+        'PLUGIN_NOT_FOUND',
+        `${host} is blacklisted and cannot be used`,
+      );
     }
     const matches = (await this.list()).filter(e => hostOf(e.site) === host);
     if (matches.length === 0) return undefined;

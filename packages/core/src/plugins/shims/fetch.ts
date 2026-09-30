@@ -1,5 +1,6 @@
 import protobuf from 'protobufjs';
 import type { CookieJar } from 'tough-cookie';
+import { ChallengeError } from '../../errors.js';
 import type { HttpClient } from '../../net/client.js';
 import { currentSignal } from '../context.js';
 
@@ -61,7 +62,9 @@ export function createFetchShim({ http, jar, userAgent }: FetchShimDeps) {
       const res = await fetchApi(url, init);
       if (!res.ok) return '';
       return new TextDecoder(encoding).decode(await res.arrayBuffer());
-    } catch {
+    } catch (err) {
+      // A bot check needs a person; surface it instead of an empty page.
+      if (err instanceof ChallengeError) throw err;
       return '';
     }
   };
@@ -71,7 +74,8 @@ export function createFetchShim({ http, jar, userAgent }: FetchShimDeps) {
       const res = await fetchApi(url, init);
       if (!res.ok) return '';
       return Buffer.from(await res.arrayBuffer()).toString('base64');
-    } catch {
+    } catch (err) {
+      if (err instanceof ChallengeError) throw err;
       return '';
     }
   };

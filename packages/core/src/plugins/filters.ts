@@ -5,6 +5,7 @@ import {
   type Filters,
   type FilterValues,
 } from '../types/filters.js';
+import { LnreaderError } from '../errors.js';
 
 type WithOptions = { options: readonly { label: string; value: string }[] };
 
@@ -25,7 +26,8 @@ function matchOption(
     .join(', ');
   const more =
     filter.options.length > 12 ? `, … (${filter.options.length} total)` : '';
-  throw new Error(
+  throw new LnreaderError(
+    'INVALID_INPUT',
     `Unknown option "${input}" for ${key}. Options: ${shown}${more}`,
   );
 }
@@ -34,7 +36,10 @@ function parseBool(key: string, input: string): boolean {
   const v = input.trim().toLowerCase();
   if (['true', 'on', 'yes', '1'].includes(v)) return true;
   if (['false', 'off', 'no', '0'].includes(v)) return false;
-  throw new Error(`${key} is a switch: use true or false`);
+  throw new LnreaderError(
+    'INVALID_INPUT',
+    `${key} is a switch: use true or false`,
+  );
 }
 
 const list = (input: string) =>
@@ -84,7 +89,8 @@ export function parseFilterArgs(
   args: string[],
 ): FilterValues | undefined {
   if (!filters) {
-    if (args.length) throw new Error('This plugin has no filters');
+    if (args.length)
+      throw new LnreaderError('INVALID_INPUT', 'This plugin has no filters');
     return undefined;
   }
   const values: FilterValues = Object.fromEntries(
@@ -95,11 +101,16 @@ export function parseFilterArgs(
   );
   for (const arg of args) {
     const eq = arg.indexOf('=');
-    if (eq <= 0) throw new Error(`Filters look like key=value, got "${arg}"`);
+    if (eq <= 0)
+      throw new LnreaderError(
+        'INVALID_INPUT',
+        `Filters look like key=value, got "${arg}"`,
+      );
     const key = arg.slice(0, eq).trim();
     const filter = filters[key];
     if (!filter) {
-      throw new Error(
+      throw new LnreaderError(
+        'INVALID_INPUT',
         `Unknown filter "${key}". Filters: ${Object.keys(filters).join(', ')}`,
       );
     }
