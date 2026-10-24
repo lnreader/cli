@@ -1,5 +1,11 @@
 # @lnreader/plugin-runtime
 
+## 0.1.1
+
+### Patch Changes
+
+- 2a1ab71: Accept self-hosted plugins (such as komga) whose `site` is undefined until their URL setting is configured.
+
 ## 0.1.0
 
 ### Minor Changes
