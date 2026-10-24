@@ -46,11 +46,14 @@ export function assertPluginShape(
     throw new InvalidPluginError(id, 'module did not export a plugin instance');
   }
   const p = value as Record<string, unknown>;
+  // Self-hosted sources (e.g. komga) read `site` from a user setting, so it
+  // is empty or undefined until configured. Normalize it to '' so callers
+  // can treat it as a string; the runner reports NEEDS_CONFIG on use.
+  if (p.pluginSettings && (p.site === undefined || p.site === null)) {
+    p.site = '';
+  }
   for (const field of ['id', 'name', 'site', 'version'] as const) {
-    // Self-hosted sources (e.g. komga) read `site` from a user setting, so it
-    // may be empty until configured.
-    const optional =
-      field === 'site' && typeof p.site === 'string' && !!p.pluginSettings;
+    const optional = field === 'site' && !!p.pluginSettings;
     if (typeof p[field] !== 'string' || (!p[field] && !optional)) {
       throw new InvalidPluginError(id, `missing string field "${field}"`);
     }
