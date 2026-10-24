@@ -1,5 +1,12 @@
 # @lnreader/cli
 
+## 0.1.1
+
+### Patch Changes
+
+- Updated dependencies [2a1ab71]
+  - @lnreader/plugin-runtime@0.1.1
+
 ## 0.1.0
 
 ### Minor Changes
