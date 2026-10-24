@@ -78,6 +78,30 @@ describe('sandbox', () => {
     );
   });
 
+  it('accepts an unset site on plugins with settings', async () => {
+    const d = await deps();
+    const methods = [
+      'popularNovels',
+      'parseNovel',
+      'parseChapter',
+      'searchNovels',
+    ]
+      .map(m => `${m}() {}`)
+      .join(', ');
+    const code = (site: string) =>
+      `exports.default = { id: 'k', name: 'K', version: '1', site: ${site}, ` +
+      `pluginSettings: { url: { value: '', label: 'URL' } }, ${methods} }`;
+    expect(loadPlugin(code('undefined'), 'k', d).site).toBe('');
+    expect(loadPlugin(code("''"), 'k', d).site).toBe('');
+    const noSettings = code('undefined').replace(
+      /pluginSettings: .*?\} \},/,
+      '',
+    );
+    expect(() => loadPlugin(noSettings, 'k', d)).toThrow(
+      'missing string field "site"',
+    );
+  });
+
   it('times out runaway top-level code', async () => {
     const d = { ...(await deps()), loadTimeoutMs: 50 };
     expect(() => loadPlugin('while (true) {}', 'spin', d)).toThrow(/timed out/);
