@@ -1,3 +1,4 @@
+import impit from 'impit';
 import { PluginError } from './plugins/errors.js';
 
 export class HttpError extends Error {
@@ -121,7 +122,7 @@ export function errorInfo(err: unknown): ErrorInfo {
     }
   }
   for (const e of chain(err)) {
-    if (e instanceof HttpError)
+    if (e instanceof HttpError || e instanceof impit.TransportError)
       return {
         code: 'NETWORK',
         message,
