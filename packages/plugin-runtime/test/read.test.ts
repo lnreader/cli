@@ -1,3 +1,4 @@
+import impit from 'impit';
 import { describe, expect, it } from 'vitest';
 import {
   BudgetExceededError,
@@ -256,6 +257,10 @@ describe('errorInfo', () => {
     expect(errorInfo(new HttpError(500, 'https://x.test')).code).toBe(
       'NETWORK',
     );
+    expect(
+      errorInfo(new Error('failed', { cause: new impit.ConnectError('dns') }))
+        .code,
+    ).toBe('NETWORK');
     expect(errorInfo(new PluginError('p', 'm', new Error('boom'))).code).toBe(
       'PLUGIN_ERROR',
     );

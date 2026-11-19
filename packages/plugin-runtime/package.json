@@ -55,6 +55,7 @@
     "domhandler": "^6.0.1",
     "env-paths": "^4.0.0",
     "htmlparser2": "^9.1.0",
+    "impit": "^0.14.9",
     "jszip": "^3.10.2",
     "protobufjs": "^7.6.6",
     "sanitize-html": "^2.17.7",
