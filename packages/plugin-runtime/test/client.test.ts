@@ -1,8 +1,9 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { CookieJar } from 'tough-cookie';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { HttpClient, parseRetryAfter } from '../src/net/client.js';
+import { createImpitFetch } from '../src/net/impit.js';
 import { DEFAULT_USER_AGENT } from '../src/store/config.js';
 import { mockFetch } from './helpers.js';
 
@@ -125,6 +126,20 @@ describe('HttpClient', () => {
       expect(defaultHeaders['user-agent']).toBe(DEFAULT_USER_AGENT);
       expect(defaultHeaders['sec-ch-ua']).toContain('Google Chrome');
       expect(defaultHeaders['sec-fetch-mode']).toBe('navigate');
+      expect(defaultHeaders['sec-fetch-site']).toBe('none');
+      expect(defaultHeaders['referer']).toBeUndefined();
+
+      const sameOriginHeaders = (await (
+        await http.request(url, { headers: { referer: url } })
+      ).json()) as Record<string, string>;
+      expect(sameOriginHeaders['sec-fetch-site']).toBe('same-origin');
+
+      const crossSiteHeaders = (await (
+        await http.request(url, {
+          headers: { referer: 'https://other.test/' },
+        })
+      ).json()) as Record<string, string>;
+      expect(crossSiteHeaders['sec-fetch-site']).toBe('cross-site');
 
       const customHeaders = (await (
         await http.request(url, {}, { userAgent: 'CustomBrowser/1.0' })
@@ -151,6 +166,38 @@ describe('HttpClient', () => {
     } finally {
       server.closeAllConnections();
       await new Promise<void>(r => server.close(() => r()));
+    }
+  });
+
+  it('falls back to globalThis.fetch when impit fails to load', async () => {
+    const load = vi.fn(async () => {
+      throw new Error('Cannot find native binding');
+    });
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () => new Response('fallback'));
+    try {
+      const fetchImpl = createImpitFetch(load);
+      const init: RequestInit = {
+        headers: { 'user-agent': DEFAULT_USER_AGENT },
+      };
+      const first = await fetchImpl('https://x.test/1', init);
+      const second = await fetchImpl('https://x.test/2', {
+        headers: { accept: 'application/json' },
+      });
+      expect(await first.text()).toBe('fallback');
+      expect(await second.text()).toBe('fallback');
+      expect(load).toHaveBeenCalledTimes(1);
+      const firstHeaders = new Headers(fetchSpy.mock.calls[0]![1]?.headers);
+      expect(firstHeaders.get('user-agent')).toBe(DEFAULT_USER_AGENT);
+      expect(firstHeaders.get('accept')).toBe('*/*');
+      expect(firstHeaders.get('accept-language')).toBe('en-US,en;q=0.9');
+      expect(firstHeaders.get('sec-fetch-mode')).toBe('cors');
+      const secondHeaders = new Headers(fetchSpy.mock.calls[1]![1]?.headers);
+      expect(secondHeaders.get('accept')).toBe('application/json');
+      expect(secondHeaders.get('accept-language')).toBe('en-US,en;q=0.9');
+    } finally {
+      fetchSpy.mockRestore();
     }
   });
 });

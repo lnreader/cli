@@ -1,4 +1,4 @@
-import { Impit, type RequestInit as ImpitRequestInit } from 'impit';
+import type { RequestInit as ImpitRequestInit } from 'impit';
 import { DEFAULT_USER_AGENT } from '../store/config.js';
 import type { FetchLike } from './client.js';
 
@@ -27,7 +27,7 @@ function secFetchSite(url: string, headers: Headers): string {
 }
 
 /**
- * Adjusts only context-dependent headers (`Referer`, `Sec-Fetch-*`, and custom
+ * Adjusts only context-dependent headers (`Sec-Fetch-*` and custom
  * `User-Agent` overrides) while leaving static browser headers (`Accept`,
  * `Accept-Encoding`, `Accept-Language`, `Priority`, `Sec-CH-UA*`, `User-Agent`)
  * to impit's browser profile.
@@ -47,13 +47,6 @@ function adaptHeaders(
     }
   }
 
-  if (!headers.has('referer')) {
-    try {
-      headers.set('referer', `${new URL(url).origin}/`);
-    } catch {
-      // Leave unset if URL parsing fails.
-    }
-  }
   if (!headers.has('sec-fetch-site')) {
     headers.set('sec-fetch-site', secFetchSite(url, headers));
   }
@@ -87,13 +80,38 @@ function adaptHeaders(
   return headers;
 }
 
-export function createImpitFetch(): FetchLike {
-  const impit = new Impit({ browser: 'chrome151' });
-  return (input, init = {}) => {
-    const method = (init.method ?? 'GET').toUpperCase();
-    return impit.fetch(input, {
-      ...(init as ImpitRequestInit),
-      headers: adaptHeaders(input, method, init.headers),
-    }) as unknown as Promise<Response>;
-  };
+const FALLBACK_HEADERS: Record<string, string> = {
+  Accept: '*/*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Sec-Fetch-Mode': 'cors',
+};
+
+export function createImpitFetch(
+  load: () => Promise<typeof import('impit')> = () => import('impit'),
+): FetchLike {
+  let implPromise: Promise<FetchLike> | undefined;
+  const resolveImpl = (): Promise<FetchLike> =>
+    (implPromise ??= (async (): Promise<FetchLike> => {
+      try {
+        const { Impit } = await load();
+        const impit = new Impit({ browser: 'chrome151', timeout: null });
+        return (input, init = {}) => {
+          const method = (init.method ?? 'GET').toUpperCase();
+          return impit.fetch(input, {
+            ...(init as ImpitRequestInit),
+            headers: adaptHeaders(input, method, init.headers),
+          }) as unknown as Promise<Response>;
+        };
+      } catch {
+        return (input, init = {}) => {
+          const headers = toHeaders(init.headers);
+          for (const [k, v] of Object.entries(FALLBACK_HEADERS)) {
+            if (!headers.has(k)) headers.set(k, v);
+          }
+          return globalThis.fetch(input, { ...init, headers });
+        };
+      }
+    })());
+
+  return async (input, init) => (await resolveImpl())(input, init);
 }
