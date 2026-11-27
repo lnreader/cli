@@ -77,7 +77,11 @@ export function loadPlugin(
   id: string,
   options: SandboxOptions,
 ): Plugin.PluginBase {
-  const { modules, fetch } = createShims(options);
+  const pluginRef: { current?: Plugin.PluginBase } = {};
+  const { modules, fetch } = createShims({
+    ...options,
+    defaultReferer: options.defaultReferer ?? (() => pluginRef.current?.site),
+  });
   const module = { exports: {} as Record<string, unknown> };
   const context = vm.createContext({
     module,
@@ -109,7 +113,8 @@ export function loadPlugin(
     timeout: options.loadTimeoutMs ?? 5_000,
   });
   const exported = module.exports.default ?? module.exports;
-  return assertPluginShape(exported, id);
+  pluginRef.current = assertPluginShape(exported, id);
+  return pluginRef.current;
 }
 
 /**

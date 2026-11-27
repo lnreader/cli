@@ -2,6 +2,7 @@ import protobuf from 'protobufjs';
 import type { CookieJar } from 'tough-cookie';
 import { ChallengeError } from '../../errors.js';
 import type { HttpClient } from '../../net/client.js';
+import { toHeaders } from '../../net/impit.js';
 import { currentSignal } from '../context.js';
 
 export type FetchInit = {
@@ -23,6 +24,8 @@ export type FetchShimDeps = {
   jar: CookieJar;
   /** User-Agent for this plugin's requests (see `lnreader auth`). */
   userAgent?: string;
+  /** Plugin site URL used as the default `Referer` when a request omits one. */
+  defaultReferer?: () => string | undefined;
 };
 
 type HeadersInit = ConstructorParameters<typeof Headers>[0];
@@ -45,13 +48,32 @@ function toRequestInit(init?: FetchInit): RequestInit {
 }
 
 /** `@libs/fetch`, routed through the rate-limited client and the plugin's cookie jar. */
-export function createFetchShim({ http, jar, userAgent }: FetchShimDeps) {
-  const fetchApi = (url: string, init?: FetchInit): Promise<Response> =>
-    http.request(String(url), toRequestInit(init), {
+export function createFetchShim({
+  http,
+  jar,
+  userAgent,
+  defaultReferer,
+}: FetchShimDeps) {
+  const fetchApi = (url: string, init?: FetchInit): Promise<Response> => {
+    const reqInit = toRequestInit(init);
+    const site = defaultReferer?.();
+    if (site) {
+      const headers = toHeaders(reqInit.headers);
+      if (!headers.has('referer')) {
+        try {
+          headers.set('referer', `${new URL(site).origin}/`);
+        } catch {
+          // Leave unset if site is not a valid URL.
+        }
+      }
+      reqInit.headers = headers;
+    }
+    return http.request(String(url), reqInit, {
       jar,
       userAgent,
       signal: currentSignal(),
     });
+  };
 
   const fetchText = async (
     url: string,

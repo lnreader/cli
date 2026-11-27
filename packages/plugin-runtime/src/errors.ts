@@ -103,6 +103,26 @@ function* chain(err: unknown): Generator<unknown> {
 }
 
 /**
+ * Detect impit's `TransportError` hierarchy without importing `impit` at module
+ * load time (which fails on platforms without a prebuilt native binary).
+ */
+function isImpitTransportError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  let seenTransport = false;
+  for (
+    let proto = Object.getPrototypeOf(err);
+    proto && proto !== Error.prototype;
+    proto = Object.getPrototypeOf(proto)
+  ) {
+    const name = (proto as { constructor?: { name?: string } }).constructor
+      ?.name;
+    if (name === 'TransportError') seenTransport = true;
+    if (seenTransport && name === 'ImpitError') return true;
+  }
+  return false;
+}
+
+/**
  * Map any thrown value to `{ code, message, hint }`. The first
  * `LnreaderError` in the cause chain wins, so a bot check inside a plugin
  * call still reports `NEEDS_AUTH`.
@@ -121,7 +141,7 @@ export function errorInfo(err: unknown): ErrorInfo {
     }
   }
   for (const e of chain(err)) {
-    if (e instanceof HttpError)
+    if (e instanceof HttpError || isImpitTransportError(e))
       return {
         code: 'NETWORK',
         message,

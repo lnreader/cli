@@ -130,4 +130,45 @@ describe('sandbox', () => {
       }),
     ).rejects.toBeInstanceOf(PluginError);
   });
+
+  it('defaults Referer to the plugin site origin unless supplied', async () => {
+    const seen: (string | null)[] = [];
+    const http = new HttpClient({
+      concurrency: 1,
+      minGapMs: 0,
+      userAgent: 'ua',
+      fetch: async (_url, init) => {
+        seen.push(new Headers(init?.headers).get('referer'));
+        return new Response('ok');
+      },
+    });
+    const d = { ...(await deps()), http };
+    const code = `
+      const { fetchApi } = require('@libs/fetch');
+      exports.default = {
+        id: 'ref',
+        name: 'Ref',
+        version: '1',
+        site: 'https://novels.test/sub/path',
+        async popularNovels() {
+          await fetchApi('https://novels.test/list');
+          await fetchApi('https://cdn.other.test/api');
+          await fetchApi('https://novels.test/custom', {
+            headers: { Referer: 'https://explicit.test/' },
+          });
+          return [];
+        },
+        parseNovel() {},
+        parseChapter() {},
+        searchNovels() {},
+      };
+    `;
+    const plugin = loadPlugin(code, 'ref', d);
+    await plugin.popularNovels(1, { showLatestNovels: false, filters: {} });
+    expect(seen).toEqual([
+      'https://novels.test/',
+      'https://novels.test/',
+      'https://explicit.test/',
+    ]);
+  });
 });

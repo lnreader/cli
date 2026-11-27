@@ -217,9 +217,9 @@ try {
     } catch {
       // Not JSON; reported below.
     }
-    // Plain connection failures (no HTTP response) surface as `fetch failed`.
+    // Plain connection failures (no HTTP response) surface as `fetch failed` or impit's `Failed to connect`.
     const offline =
-      /fetch failed|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ETIMEDOUT|UND_ERR|network/i;
+      /fetch failed|Failed to connect|ENOTFOUND|EAI_AGAIN|ECONNREFUSED|ECONNRESET|ETIMEDOUT|UND_ERR|network/i;
     if (
       error.code === 'NETWORK' ||
       offline.test(`${error.message ?? ''}\n${list.stderr}`)

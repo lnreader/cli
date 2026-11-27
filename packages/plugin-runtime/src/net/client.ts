@@ -1,5 +1,6 @@
 import type { CookieJar } from 'tough-cookie';
 import { ChallengeError, HttpError } from '../errors.js';
+import { createImpitFetch, toHeaders } from './impit.js';
 import { HostLimiter, type LimiterOptions } from './limiter.js';
 
 export type FetchLike = (
@@ -24,12 +25,6 @@ export type HttpClientOptions = LimiterOptions & {
   /** Upper bound on any single wait, including `Retry-After`. */
   maxDelayMs?: number;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
-};
-
-const DEFAULT_HEADERS: Record<string, string> = {
-  Accept: '*/*',
-  'Accept-Language': 'en-US,en;q=0.9',
-  'Sec-Fetch-Mode': 'cors',
 };
 
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
@@ -83,18 +78,6 @@ export async function isChallenge(res: Response): Promise<boolean> {
   }
 }
 
-type HeadersInit = ConstructorParameters<typeof Headers>[0];
-
-function toHeaders(init: HeadersInit | undefined): Headers {
-  const headers = new Headers();
-  if (init) {
-    const source =
-      init instanceof Headers ? init : new Headers(init as HeadersInit);
-    source.forEach((v, k) => headers.set(k, v));
-  }
-  return headers;
-}
-
 /**
  * Polite HTTP client: per-host rate limiting, cookie jars that also see
  * redirect hops, and retries with exponential backoff honoring `Retry-After`.
@@ -106,8 +89,7 @@ export class HttpClient {
 
   constructor(private readonly options: HttpClientOptions) {
     this.limiter = new HostLimiter(options);
-    this.fetchImpl =
-      options.fetch ?? ((input, init) => globalThis.fetch(input, init));
+    this.fetchImpl = options.fetch ?? createImpitFetch();
     this.sleep = options.sleep ?? sleep;
   }
 
@@ -164,9 +146,6 @@ export class HttpClient {
     let method = (init.method ?? 'GET').toUpperCase();
     let body = init.body;
     const baseHeaders = toHeaders(init.headers);
-    for (const [k, v] of Object.entries(DEFAULT_HEADERS)) {
-      if (!baseHeaders.has(k)) baseHeaders.set(k, v);
-    }
     if (!baseHeaders.has('user-agent'))
       baseHeaders.set('user-agent', opts.userAgent ?? this.options.userAgent);
 
