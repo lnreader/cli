@@ -1,5 +1,13 @@
 # @lnreader/cli
 
+## 0.1.2
+
+### Patch Changes
+
+- 6e68c08: Use a Chrome-compatible HTTP transport for plugin requests to improve compatibility with novel sites. The runtime falls back to Node’s built-in fetch when the native transport is unavailable.
+- Updated dependencies [6e68c08]
+  - @lnreader/plugin-runtime@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes
